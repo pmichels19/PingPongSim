@@ -1,0 +1,108 @@
+cabal-version: 1.12
+
+name:           pingpong
+version:        0.2.0.0
+description:    Please see the README on GitHub at <https://github.com/mloffler/pingpong#readme>
+homepage:       https://github.com/mloffler/pingpong#readme
+bug-reports:    https://github.com/mloffler/pingpong/issues
+author:         Maarten Löffler
+copyright:      2021 Maarten Löffler
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/mloffler/pingpong
+
+library
+  exposed-modules:
+    PingPong
+  other-modules:
+    Convert
+    Transformation
+    PingPong.Draw
+    PingPong.Draw.Gloss
+    PingPong.Draw.Rasterific
+    PingPong.Model
+    PingPong.Player
+    PingPong.Player.NativePlayer
+    PingPong.Player.ArgPlayer
+    PingPong.Player.SocketPlayer
+    PingPong.Simulation  
+    PingPong.Simulation.Recording
+    PingPong.Simulation.Realtime
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+    , hgeometry >= 0.12
+    , hgeometry-combinatorial >= 0.12
+    , JuicyPixels
+    , FontyFruity
+    , Rasterific
+    , gloss
+    , colour
+    , vector
+    , lens
+    , containers
+    , vinyl
+    , process
+    , directory
+    , random
+    , deepseq
+    , network
+    , network-simple
+    , utf8-string
+  default-language: Haskell2010
+  default-extensions: TypeFamilies
+                    , GADTs
+                    , KindSignatures
+                    , DataKinds
+                    , TypeOperators
+                    , ConstraintKinds
+                    , PolyKinds
+                    , RankNTypes
+                    , TypeApplications
+                    , ScopedTypeVariables
+
+                    , PatternSynonyms
+                    , TupleSections
+                    , LambdaCase
+                    , ViewPatterns
+
+                    , StandaloneDeriving
+                    , GeneralizedNewtypeDeriving
+                    , DeriveFunctor
+                    , DeriveFoldable
+                    , DeriveTraversable
+                    , DeriveGeneric
+
+
+                    , FlexibleInstances
+                    , FlexibleContexts
+                    , MultiParamTypeClasses
+
+executable pingpong-exe
+  main-is: Main.hs
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , pingpong
+  default-language: Haskell2010
+
+test-suite pingpong-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  hs-source-dirs:
+      pingpong
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , pingpong
+  default-language: Haskell2010
