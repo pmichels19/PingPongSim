@@ -30,6 +30,7 @@ library
     PingPong.Model
     PingPong.Player
     PingPong.Player.NativePlayer
+    PingPong.Player.TestPlayer
     PingPong.Player.ArgPlayer
     PingPong.Player.SocketPlayer
     PingPong.Simulation  
