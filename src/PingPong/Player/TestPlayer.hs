@@ -11,7 +11,7 @@ import Data.Colour.Names
 
 player :: Player
 player = defaultPlayer
-  { name    = "Pieter's Sick Player"
+  { name    = "Pieters' Player"
   , arm     = wavyArm
   , foot    = wavyFoot
   , action  = wavyAction
@@ -35,17 +35,22 @@ wavyArm = [ Link  (gradient 0.1) 0.5
 wavyFoot :: Float
 wavyFoot = 1.5
 
+-- Get the angle from a joint, if a non-joint element is given, 0.0 is returned
+currentJointAngle :: Element -> Float
+currentJointAngle (Joint _ angle) = angle
+currentJointAngle _ = 0.0
+
 wavyAction :: Float -> (Float, Item) -> BallState -> Arm -> IO Motion
 wavyAction t hit ballState arm = do
-    let test = filter isJoint arm
-    print(test)
-    let joint1Rotation = sin (2.0 * t)
-    let joint2Rotation = cos (2.1 * t)
-    let joint3Rotation = sin (2.2 * t)
-    let joint4Rotation = - (joint1Rotation + joint2Rotation + joint3Rotation)
-    return [  joint1Rotation
-            , joint2Rotation
-            , joint3Rotation
+    let joints = filter isJoint arm
+    let joint1Rot = currentJointAngle (joints !! 0)
+    let joint2Rot = currentJointAngle (joints !! 1)
+    let joint3Rot = currentJointAngle (joints !! 2)
+    let joint4Rot = currentJointAngle (joints !! 3)
+    let joint4Rotation = joint4Rot - (joint1Rot + joint2Rot + joint3Rot)
+    return [  sin t
+            , cos t
+            , sin t
             , joint4Rotation
            ]
 
