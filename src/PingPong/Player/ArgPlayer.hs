@@ -1,10 +1,11 @@
-module PingPong.Player.ArgPlayer (player) where
-
-import System.Process
+module PingPong.Player.ArgPlayer (player, collision) where
 
 import PingPong.Model
 import PingPong.Player
 import PingPong.Simulation
+import PingPong.Simulation.Collision
+
+import System.Process
 
 import Data.Colour
 import Data.Colour.SRGB
@@ -43,8 +44,17 @@ argFoot = 1.7
 
 argAction :: Float -> (Float, Item) -> BallState -> Arm -> IO Motion
 argAction t h b a = do
-  let message = writeState t h b a ++ "%"
+  let message = "action\n" ++ writeState t h b a ++ "%"
   (errCode, outRPL, errRPL) <- readProcessWithExitCode "python3" ["src/PingPong/Player/ArgPlayer.py", message] ""
   if not $ null errRPL then error errRPL 
                        else return $ readMotion outRPL
 
+
+-- FOR EXERCISE B1 --
+
+collision :: CollisionChecker
+collision state1 state2 = do
+  let message = "collision\n" ++ writeCollisionInput state1 state2 ++ "%"
+  (errCode, outRPL, errRPL) <- readProcessWithExitCode "python3" ["src/PingPong/Player/ArgPlayer.py", message] ""
+  if not $ null errRPL then error errRPL 
+                       else return $ readCollisionOutput outRPL

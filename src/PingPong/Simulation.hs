@@ -2,6 +2,7 @@ module PingPong.Simulation where
 
 import PingPong.Model
 import PingPong.Draw
+import PingPong.Simulation.Collision
 
 import Data.Geometry hiding (init, head, zero, replicate)
 import Data.Geometry.Matrix
@@ -71,17 +72,17 @@ actDuringRally False st = act True (flipState st)
 -- fmap flipMotion $
 -- don't flip resulting motion -> motion is always in local perspective
 
-update :: Float -> State -> IO State
-update deltaTime st = do
+update :: CollisionChecker -> Float -> State -> IO State
+update checker deltaTime st = do
   om1 <- act True  st
   om2 <- act False st
   let omb = dir $ ball st
   let initialTime  = time st
       goalTime     = initialTime + deltaTime
       initialState = st {m1 = om1, m2 = om2} -- , mb = omb}
-      finalState   = case phase st of
-                       BeforeRally _ -> updateUntilGhost goalTime initialState {frame = frame st + 1}
-                       _ -> updateUntil goalTime initialState {frame = frame st + 1}
+  finalState <- case phase st of
+                     BeforeRally _ -> return $ updateUntilGhost goalTime initialState {frame = frame st + 1}
+                     _ -> updateUntil checker goalTime initialState {frame = frame st + 1}
   curvedState <- curveBall deltaTime finalState
   perturbedState <- perturb deltaTime curvedState
   updatePhase deltaTime perturbedState
@@ -171,22 +172,22 @@ curveBall deltaTime st = return $ st {ball = (ball st) {dir = decay *^ dir (ball
 
 -- | Update state using fixed motion until the goal time.
 --   Will recurse until the next collision event is later than the goal time.
-updateUntil :: Float -> State -> State
-updateUntil deadline st0 | deadline == time st0 = st0
-                         | otherwise =
+updateUntil :: CollisionChecker -> Float -> State -> IO State
+updateUntil checker deadline st0 | deadline == time st0 = return st0
+                                 | otherwise = do
   let st1 = updateUntilRaw deadline st0
       t0  = time st0
       t1  = time st1
       b0  = loc $ ball st0
       b1  = loc $ ball st1
-      collide (i, s0, s1) = collide' i (t0, b0, s0) (t1, b1, s1)
+      collide (i, s0, s1) = collide' checker i (t0, b0, s0) (t1, b1, s1)
       repeated (t, i, _) = i /= Air && (fst $ head $ hits st0) >= t0 && i == (snd $ head $ hits st0)
-      candidates = sort $ filter (not . repeated) $ map collide $ zip3 items (segmentsAt st0) (segmentsAt st1)
+  collisions <- mapM collide $ zip3 items (segmentsAt st0) (segmentsAt st1)
+  let candidates = sort $ filter (not . repeated) $ collisions
       (t, i, v) = head $ candidates ++ [(t1, Air, dir $ ball st1)]
-  in -- traceShow (t, v) $  
-     updateUntil deadline $ updateUntilRaw t st0 { ball = (ball st0) {dir = v}
-                                                 , hits = newHits (hits st0) (t, i)
-                                                 }
+  updateUntil checker deadline $ updateUntilRaw t st0 { ball = (ball st0) {dir = v}
+                                                      , hits = newHits (hits st0) (t, i)
+                                                      }
 
 items :: [Item]
 items = map item $ [0..]
@@ -325,26 +326,19 @@ simpleBallStep f st = st { loc = loc st .+^ f *^ dir st
   where decay = (1 - 0.05) ** f
 
 
--- | Reflect vector 'a' in a line with direction vector 'b'.
-reflectVector :: Vector 2 Float -> Vector 2 Float -> Vector 2 Float
-reflectVector a b = reflection (angle (Vector2 1 0) b) `transformBy` a
-
--- | Find the angle between two vectors, in counter-clockwise order, from the first to the second.
-angle :: Vector 2 Float -> Vector 2 Float -> Float
-angle (Vector2 x1 y1) (Vector2 x2 y2) = atan2 (x1 * y2 - y1 * x2) (x1 * x2 + y1 * y2)
-
 down :: Vector 2 Float
 down = Vector2 0 (-1)
 
 
 
+-- collisions
 
-
-collide' :: Item
+collide' :: CollisionChecker -> Item
          -> (Float, Point 2 Float, LineSegment 2 () Float) 
          -> (Float, Point 2 Float, LineSegment 2 () Float) 
-         -> (Float, Item, Vector 2 Float)
+         -> IO (Float, Item, Vector 2 Float)
+collide' checker i (t0, b0, s0) (t1, b1, s1) = do
+  check <- verify checker (t0, b0, s0) (t1, b1, s1)
+  case check of Nothing        -> return (t1, Air, (b1 .-. b0) ^/ (t1 - t0))
+                Just (t, p, v) -> return (t, i, v)
 
-collide' i (t0, Point2 x0 y0, s0) (t1, Point2 x1 y1, s1) 
-  | y1 >  0 = (t1, Air    , Vector2 (x1 - x0) (y1 - y0) ^/ (t1 - t0))
-  | y1 <= 0 = (t1, Other 0, Vector2 (x1 - x0) (y0 - y1) ^/ (t1 - t0))

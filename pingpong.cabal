@@ -1,7 +1,7 @@
 cabal-version: 1.12
 
 name:           pingpong
-version:        0.2.0.0
+version:        0.2.1.0
 description:    Please see the README on GitHub at <https://github.com/mloffler/pingpong#readme>
 homepage:       https://github.com/mloffler/pingpong#readme
 bug-reports:    https://github.com/mloffler/pingpong/issues
@@ -30,14 +30,16 @@ library
     PingPong.Model
     PingPong.Player
     PingPong.Player.NativePlayer
-    PingPong.Player.TestPlayer
     PingPong.Player.ArgPlayer
     PingPong.Player.SocketPlayer
     PingPong.Simulation  
+    PingPong.Simulation.Collision  
     PingPong.Simulation.Recording
     PingPong.Simulation.Realtime
+    B1
   hs-source-dirs:
       src
+    , test
   build-depends:
       base >=4.7 && <5
     , hgeometry >= 0.12

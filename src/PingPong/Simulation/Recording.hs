@@ -3,6 +3,7 @@ module PingPong.Simulation.Recording where
 import PingPong.Model
 import PingPong.Draw.Rasterific
 import PingPong.Simulation
+import PingPong.Simulation.Collision
 
 import Codec.Picture( PixelRGBA8( .. ), writePng )
 import Graphics.Rasterific
@@ -11,6 +12,7 @@ import Graphics.Text.TrueType( Font, loadFontFile )
 
 import System.Directory
 import System.Process
+import System.IO
 
 import Control.DeepSeq
 import Data.Char
@@ -26,30 +28,34 @@ frameDuration :: Float
 frameDuration = 1 / frameRate
 
 play :: Player -> Player -> IO ()
-play ip1 ip2 = do
+play = playWithCollision defaultCollisionChecker
+
+playWithCollision :: CollisionChecker -> Player -> Player -> IO ()
+playWithCollision checker ip1 ip2 = do
+  hSetBuffering stdout NoBuffering
   prepare ip1
   prepare ip2
   initialState <- initBeforeGame $ defState {p1 = ip1, p2 = ip2}
   putStrLn $ "[" ++ name ip1 ++ " versus " ++ name ip2 ++ "]"
-  Right font <- loadFontFile "Montserrat-Bold.ttf"
-  pics <- record frameCount font initialState
+  Right font <- loadFontFile "fonts/lato/Lato-Bold.ttf"  
+  pics <- record checker frameCount font initialState
   export pics (filter isAlphaNum (name ip1) ++ "-" ++ filter isAlphaNum (name ip2))
   terminate ip1
   terminate ip2
 
 
-record :: Int -> Font -> State -> IO [Drawing PixelRGBA8 ()]
-record 0 _    _  = return []
-record _ _    st | phase st == GameOver = return []
-record n font os = do
-  (ns, pic) <- step font os
-  pics      <- record (n - 1) font ns 
+record :: CollisionChecker -> Int -> Font -> State -> IO [Drawing PixelRGBA8 ()]
+record checker 0 _    _  = return []
+record checker _ _    st | phase st == GameOver = return []
+record checker n font os = do
+  (ns, pic) <- step checker font os
+  pics      <- record checker (n - 1) font ns 
   return $ pic : pics
 
-step :: Font -> State -> IO (State, Drawing PixelRGBA8 ())
-step font os = do
+step :: CollisionChecker -> Font -> State -> IO (State, Drawing PixelRGBA8 ())
+step checker font os = do
   let pic = drawState font os
-  ns <- update frameDuration os
+  ns <- update checker frameDuration os
   return (ns, pic)
 
 
@@ -68,8 +74,8 @@ exportFrame :: Int -> Drawing PixelRGBA8 () -> IO ()
 exportFrame i pic = do
   let white = PixelRGBA8 255 255 255 255
       img = renderDrawing 1920 1080 white pic
-  writePng ("recording/frame/" ++ show i ++ ".png") img
   putStr $ frameMark i
+  writePng ("recording/frame/" ++ show i ++ ".png") img
 
 frameMark :: Int -> String
 frameMark i | i `mod` (60 * round frameRate) == 0 = show $ i `div` round frameRate

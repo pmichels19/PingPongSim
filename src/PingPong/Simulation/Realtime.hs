@@ -3,6 +3,7 @@ module PingPong.Simulation.Realtime where
 import PingPong.Model
 import PingPong.Draw.Gloss
 import PingPong.Simulation
+import PingPong.Simulation.Collision
 
 import System.Exit
 import Control.Monad
@@ -19,7 +20,10 @@ windowDisplay = InWindow "Window" (1600, 800) (100, 100)
 
 
 play :: Player -> Player -> IO ()
-play ip1 ip2 = do
+play = playWithCollision defaultCollisionChecker
+
+playWithCollision :: CollisionChecker -> Player -> Player -> IO ()
+playWithCollision checker ip1 ip2 = do
   prepare ip1
   prepare ip2
   initialState <- initBeforeGame $ defState {p1 = ip1, p2 = ip2}
@@ -28,11 +32,12 @@ play ip1 ip2 = do
              simulationRate
              initialState
              (return . drawState)
-             realtimeUpdate
+             (realtimeUpdate checker)
 
-realtimeUpdate :: ViewPort -> Float -> State -> IO State
-realtimeUpdate p f os = do
-  ns <- update f os
+
+realtimeUpdate :: CollisionChecker -> ViewPort -> Float -> State -> IO State
+realtimeUpdate checker p f os = do
+  ns <- update checker f os
   when (phase ns == GameOver) $ endGame ns
   return ns
     
