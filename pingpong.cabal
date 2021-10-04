@@ -29,6 +29,7 @@ library
     PingPong.Draw.Rasterific
     PingPong.Model
     PingPong.Player
+    PingPong.Player.SoloboloPlayer
     PingPong.Player.NativePlayer
     PingPong.Player.ArgPlayer
     PingPong.Player.SocketPlayer
