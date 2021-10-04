@@ -11,6 +11,7 @@ import PingPong.Simulation.Collision
 
 import Data.Colour
 import Data.Colour.Names
+import Data.Maybe
 
 player :: Player
 player = defaultPlayer
@@ -63,10 +64,65 @@ wavyAction t hit ballState arm = do
 -- at collision time, and the resulting velocity vector of p at that time.
 collision :: CollisionChecker
 collision (time1, point1, segment1) (time2, point2, segment2) = do
-  let Point2 xp1 yp1 = point1
+  -- get all variables
+  let Point2 a b = point1
       Point2 xp2 yp2 = point2
-      Point2 xq1 yq1 = segment1 ^. start ^. core  
+      Point2 e f = segment1 ^. start ^. core  
       Point2 xq2 yq2 = segment2 ^. start ^. core
-      Point2 xr1 yr1 = segment1 ^. end   ^. core
+      Point2 c d = segment1 ^. end   ^. core
       Point2 xr2 yr2 = segment2 ^. end   ^. core
-  return Nothing
+      g = xp2 - a
+      h = yp2 - b
+      i = xr2 - c
+      j = yr2 - d
+      k = xq2 - e
+      l = yq2 - f
+      abcA = getabcA g h i j k l
+      abcB = getabcB a b c d e f g h i j k l
+      abcC = getabcC a b c d e f
+      abcD = getabcD abcA abcB abcC
+      toi = getTOI abcA abcB abcC abcD
+  if isNothing toi
+    then return Nothing
+    -- else return Nothing
+    else return getCollision toi (c + toi * i) (d + toi * j) (e + toi * k) (f + toi * l) (a + toi * g) (b + toi * h)
+
+getCollision :: Float -> Float -> Float -> Float -> Float -> Float -> Float -> Maybe (Float, Point 2 Float, Vector 2 Float)
+getCollision toi rxtoi rytoi qxtoi qytoi pxtoi pytoi | sqrt ( (rxtoi - qxtoi)^2 + (rytoi - qytoi)^2 ) - (sqrt ( (rxtoi - pxtoi)^2 + (rytoi - pytoi)^2 ) + sqrt ( (pxtoi - qxtoi)^2 + (pytoi - qytoi)^2 )) < 0.0000001 = Just (toi, Point2 pxtoi pytoi, Vector2 1 1)
+                                                     | otherwise = Nothing
+
+-- gets the time of impact based on the a b c and d for the quadratic formula
+getTOI :: Float -> Float -> Float -> Float -> Maybe Float
+getTOI a b c d | d < 0 = Nothing
+               | d == 0 = Just ((-b) / (2 * a))
+               | otherwise = getEarliest ((-b + sqrt d) / (2 * a)) ((-b + sqrt d) / (2 * a))
+
+-- function to get lowest TOI from the two possible TOI's
+getEarliest :: Float -> Float -> Maybe Float
+getEarliest t1 t2 | (t1 < 0 || t1 > 1) && (t2 < 0 || t2 > 1) = Nothing
+             | t1 < 0 || t1 > 1 = Just t2
+             | t1 < t2 = Just t1
+             | otherwise = Just t2
+
+-- abc formula
+-- a = xp1      g = xp2 - xp1
+-- b = yp1      h = yp2 - yp1
+-- c = xr1      i = xr2 - xr1
+-- d = yr1      j = yr2 - yr1
+-- e = xq1      k = xq2 - xq1
+-- f = yq1      l = yq2 - yq1
+-- get the discriminant
+getabcD :: Float -> Float -> Float -> Float
+getabcD a b c = (b * b) - (4 * a * c)
+
+-- get the A of the abc formula
+getabcA :: Float -> Float -> Float -> Float -> Float -> Float -> Float
+getabcA g h i j k l = -((i * l) - (h * k) + (g * l) + (i * h) + ((i + k) * j) - ((g + i) * j))
+
+-- get the b of the abc formula
+getabcB :: Float -> Float -> Float -> Float -> Float -> Float -> Float -> Float -> Float -> Float -> Float -> Float -> Float
+getabcB a b c d e f g h i j k l = -((d * g) - (c * l) - (k * b) - (h * e) + (l * a) + (g * f) + (i * b) + (c * h) + ((i + k) * d) + ((c + e) * j) - ((f + d) * i) - ((a + c) * j))
+
+-- get the c of the abc formula
+getabcC :: Float -> Float -> Float -> Float -> Float -> Float -> Float
+getabcC a b c d e f = ((c + e) * d) - ((a + c) * d) + (a * f) - (c * f) - (b * e) + (c * b)
