@@ -8,7 +8,7 @@ import math
 # The port you will use to communicate.
 # Change this to something unique! Otherwise, if your opponent also uses sockets
 # and uses the same port, weird things will happen.
-port = 1245
+port = 1248
 
 ### ACTION
 
@@ -41,7 +41,14 @@ def format_action_output(motion):
 
 # The function where the magic happens
 def action(current_time, last_hit_time, last_hit_object, ball_location, ball_velocity, arm_configuration):
-    return [1, -1, current_time, 2, -2]
+    # get the angles of all joints
+    arm = arm_configuration.split(" ")
+    joint_angles = []
+    for i in range( len(arm) ):
+        if arm[i] == "joint":
+            i = i + 1
+            joint_angles.append( float( arm[i] ) )
+    return [math.sin(current_time), math.cos(current_time), math.sin(current_time), joint_angles[-1] - (joint_angles[0] + joint_angles[1] + joint_angles[2])]
 
 
 ### COLLISION
@@ -76,6 +83,19 @@ def parse_collision_input(data):
 def collision(t1, xp1, yp1, xq1, yq1, xr1, yr1, t2, xp2, yp2, xq2, yq2, xr2, yr2):
     return "time 15 point 0.1 0.2 vector 0.1 0.2"
 
+
+# ABC FORMULA STUFF
+def abcA():
+    return 0
+    
+def abcB():
+    return 0
+    
+def abcC():
+    return 0
+    
+def abcD():
+    return 0
 
 ### MAIN
 

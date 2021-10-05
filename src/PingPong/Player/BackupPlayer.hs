@@ -44,6 +44,7 @@ currentJointAngle :: Element -> Float
 currentJointAngle (Joint _ angle) = angle
 currentJointAngle _ = 0.0
 
+-- covered
 wavyAction :: Float -> (Float, Item) -> BallState -> Arm -> IO Motion
 wavyAction t hit ballState arm = do
     let joints = filter isJoint arm
