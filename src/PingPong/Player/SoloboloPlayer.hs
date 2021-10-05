@@ -1,31 +1,43 @@
 module PingPong.Player.SoloboloPlayer (player, collision) where
 
-import Control.Lens
-import Data.Geometry
-import Data.Ext
-
 import PingPong.Model
 import PingPong.Player
 
 import PingPong.Simulation.Collision
 
+import Network.Simple.TCP
+import Network.Socket.ByteString as ByteString
+import Data.ByteString.UTF8 as BSUTF8
+import Data.Geometry
 import Data.Colour
 import Data.Colour.Names
-import Data.Maybe
+import Data.Ext
+
+import System.Process
+import Control.Concurrent
+import Control.Lens
+
+-- The port you will use to communicate.
+-- Change this to something unique! Otherwise, if your opponent also uses sockets
+-- and uses the same port, weird things will happen.
+port :: Integer
+port = 1245
 
 player :: Player
 player = defaultPlayer
-  { name    = "Solobolo"
-  , arm     = wavyArm
-  , foot    = wavyFoot
-  , action  = wavyAction
+  { name      = "Solobolo"
+  , arm       = soloboloArm
+  , foot      = soloboloFoot
+  , action    = soloboloAction
+  , prepare   = soloboloPrepare
+  , terminate = soloboloTerminate
   }
 
 gradient :: Float -> Colour Float
 gradient x = blend x darkviolet crimson
 
-wavyArm :: Arm
-wavyArm = [ Link  (gradient 0.1) 0.5
+soloboloArm :: Arm
+soloboloArm = [ Link  (gradient 0.1) 0.5
           , Joint (gradient 0.2) (pi / 12)
           , Link  (gradient 0.3) 0.4
           , Joint (gradient 0.4) (pi / 6)
@@ -36,93 +48,32 @@ wavyArm = [ Link  (gradient 0.1) 0.5
           , Link  (gradient 0.9) 0.1
           ]
 
-wavyFoot :: Float
-wavyFoot = 1.5
+soloboloFoot :: Float
+soloboloFoot = 1.5
 
--- Get the angle from a joint, if a non-joint element is given, 0.0 is returned
-currentJointAngle :: Element -> Float
-currentJointAngle (Joint _ angle) = angle
-currentJointAngle _ = 0.0
+soloboloPrepare :: IO ()
+soloboloPrepare = do
+  spawnCommand ("python3 src/PingPong/Player/SoloboloPlayer.py")
+  threadDelay 100000
+  return ()
 
-wavyAction :: Float -> (Float, Item) -> BallState -> Arm -> IO Motion
-wavyAction t hit ballState arm = do
-    let joints = filter isJoint arm
-    let joint1Rot = currentJointAngle (joints !! 0)
-    let joint2Rot = currentJointAngle (joints !! 1)
-    let joint3Rot = currentJointAngle (joints !! 2)
-    let joint4Rot = currentJointAngle (joints !! 3)
-    let joint4Rotation = joint4Rot - (joint1Rot + joint2Rot + joint3Rot)
-    return [  sin t
-            , cos t
-            , sin t
-            , joint4Rotation
-           ]
+soloboloTerminate :: IO ()
+soloboloTerminate = connect "127.0.0.1" (show port) $ \(connectSocket, connectRemoteAddr) -> do
+  ByteString.send connectSocket (BSUTF8.fromString "terminate")
+  return ()
+  
+soloboloAction :: Float -> (Float, Item) -> BallState -> Arm -> IO Motion
+soloboloAction t h b a = connect "127.0.0.1" (show port) $ \(connectSocket, connectRemoteAddr) -> do
+  let message = "action\n" ++ writeState t h b a ++ "%"
+  ByteString.send connectSocket (BSUTF8.fromString message)
+  answer <- ByteString.recv connectSocket 4096
+  return $ readMotion (BSUTF8.toString answer)
 
--- Check for collision between a moving point p and a moving line segment qr, 
--- given their locations at two different times.
--- If a collision occurs, return the time of collision, the location of p
--- at collision time, and the resulting velocity vector of p at that time.
+-- FOR EXERCISE B1 --
+
 collision :: CollisionChecker
-collision (time1, point1, segment1) (time2, point2, segment2) = do
-  -- get all variables
-  let Point2 a b = point1
-      Point2 xp2 yp2 = point2
-      Point2 e f = segment1 ^. start ^. core  
-      Point2 xq2 yq2 = segment2 ^. start ^. core
-      Point2 c d = segment1 ^. end   ^. core
-      Point2 xr2 yr2 = segment2 ^. end   ^. core
-      g = xp2 - a
-      h = yp2 - b
-      i = xr2 - c
-      j = yr2 - d
-      k = xq2 - e
-      l = yq2 - f
-      abcA = getabcA g h i j k l
-      abcB = getabcB a b c d e f g h i j k l
-      abcC = getabcC a b c d e f
-      abcD = getabcD abcA abcB abcC
-      toi = getTOI abcA abcB abcC abcD
-  if isNothing toi
-    then return Nothing
-    -- else return Nothing
-    else return getCollision toi (c + toi * i) (d + toi * j) (e + toi * k) (f + toi * l) (a + toi * g) (b + toi * h)
-
-getCollision :: Float -> Float -> Float -> Float -> Float -> Float -> Float -> Maybe (Float, Point 2 Float, Vector 2 Float)
-getCollision toi rxtoi rytoi qxtoi qytoi pxtoi pytoi | sqrt ( (rxtoi - qxtoi)^2 + (rytoi - qytoi)^2 ) - (sqrt ( (rxtoi - pxtoi)^2 + (rytoi - pytoi)^2 ) + sqrt ( (pxtoi - qxtoi)^2 + (pytoi - qytoi)^2 )) < 0.0000001 = Just (toi, Point2 pxtoi pytoi, Vector2 1 1)
-                                                     | otherwise = Nothing
-
--- gets the time of impact based on the a b c and d for the quadratic formula
-getTOI :: Float -> Float -> Float -> Float -> Maybe Float
-getTOI a b c d | d < 0 = Nothing
-               | d == 0 = Just ((-b) / (2 * a))
-               | otherwise = getEarliest ((-b + sqrt d) / (2 * a)) ((-b + sqrt d) / (2 * a))
-
--- function to get lowest TOI from the two possible TOI's
-getEarliest :: Float -> Float -> Maybe Float
-getEarliest t1 t2 | (t1 < 0 || t1 > 1) && (t2 < 0 || t2 > 1) = Nothing
-             | t1 < 0 || t1 > 1 = Just t2
-             | t1 < t2 = Just t1
-             | otherwise = Just t2
-
--- abc formula
--- a = xp1      g = xp2 - xp1
--- b = yp1      h = yp2 - yp1
--- c = xr1      i = xr2 - xr1
--- d = yr1      j = yr2 - yr1
--- e = xq1      k = xq2 - xq1
--- f = yq1      l = yq2 - yq1
--- get the discriminant
-getabcD :: Float -> Float -> Float -> Float
-getabcD a b c = (b * b) - (4 * a * c)
-
--- get the A of the abc formula
-getabcA :: Float -> Float -> Float -> Float -> Float -> Float -> Float
-getabcA g h i j k l = -((i * l) - (h * k) + (g * l) + (i * h) + ((i + k) * j) - ((g + i) * j))
-
--- get the b of the abc formula
-getabcB :: Float -> Float -> Float -> Float -> Float -> Float -> Float -> Float -> Float -> Float -> Float -> Float -> Float
-getabcB a b c d e f g h i j k l = -((d * g) - (c * l) - (k * b) - (h * e) + (l * a) + (g * f) + (i * b) + (c * h) + ((i + k) * d) + ((c + e) * j) - ((f + d) * i) - ((a + c) * j))
-
--- get the c of the abc formula
-getabcC :: Float -> Float -> Float -> Float -> Float -> Float -> Float
-getabcC a b c d e f = ((c + e) * d) - ((a + c) * d) + (a * f) - (c * f) - (b * e) + (c * b)
+collision state1 state2 = connect "127.0.0.1" (show port) $ \(connectSocket, connectRemoteAddr) -> do
+  let message = "collision\n" ++ writeCollisionInput state1 state2 ++ "%"
+  ByteString.send connectSocket (BSUTF8.fromString message)
+  answer <- ByteString.recv connectSocket 4096
+  return $ readCollisionOutput (BSUTF8.toString answer)
