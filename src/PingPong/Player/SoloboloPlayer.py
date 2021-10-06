@@ -8,7 +8,7 @@ import math
 # The port you will use to communicate.
 # Change this to something unique! Otherwise, if your opponent also uses sockets
 # and uses the same port, weird things will happen.
-port = 1248
+port = 1298
 
 ### ACTION
 
@@ -81,21 +81,75 @@ def parse_collision_input(data):
 
 # The collision function
 def collision(t1, xp1, yp1, xq1, yq1, xr1, yr1, t2, xp2, yp2, xq2, yq2, xr2, yr2):
-    return "time 15 point 0.1 0.2 vector 0.1 0.2"
+    # get time of impact
+    toi = getCollisionTime(xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, yr2)
+    if toi == -1:
+        return "no collision"
+    
+    # check if p is on the line segment rq at time toi
+    xpt, ypt, xqt, yqt, xrt, yrt = getPointsAtTOI(toi, xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, yr2)
+    if not onLineSegment(xpt, ypt, xqt, yqt, xrt, yrt):
+        return "no collision"
+    
+    # get actual time of impact from [0, 1] toi
+    t = t1 + toi * (t2 - t1)
 
+    return f"time {t} point {xpt} {ypt} vector 0.1 0.2"
 
-# ABC FORMULA STUFF
-def abcA():
-    return 0
+def onLineSegment(xpt, ypt, xqt, yqt, xrt, yrt):
+    drp = distance(xrt, yrt, xpt, ypt)
+    dpq = distance(xpt, ypt, xqt, yqt)
+    drq = distance(xrt, yrt, xqt, yqt)
+    return abs(drq - (drp + dpq)) < 1e-8
+
+def distance(ax, ay, bx, by):
+    return math.sqrt(((bx - ax) ** 2) + ((by - ay) ** 2))
+
+def getPointsAtTOI(toi, xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, yr2):
+    xpt = (1 - toi) * xp1 + toi * xp2
+    ypt = (1 - toi) * yp1 + toi * yp2
+    xqt = (1 - toi) * xq1 + toi * xq2
+    yqt = (1 - toi) * yq1 + toi * yq2
+    xrt = (1 - toi) * xr1 + toi * xr2
+    yrt = (1 - toi) * yr1 + toi * yr2
+    return (xpt, ypt, xqt, yqt, xrt, yrt)
+
+# get time of collision, if this returns -1, then there is no collision
+def getCollisionTime(xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, yr2):
+    # calculate abc formula values
+    a = 2 * xr1 * yr1 + xq1 * yr1 - xp1 * yr1 - yq1 * xr1 + yp1 * xr1 + xp1 * yq1 - yp1 * xq1
+    b = (yq2 - yq1 - yr2 + yr1) * xp1 - (yq2 - yq1 - yr2 + yr1) * xr1 + (xp2 - xp1 - xr2 + xr1) * yq1 - (xp2 - xp1 - xr2 - xr1) * yr1 - (xq2 - xq1 - xr2 + xr1) * yp1 - (xq2 - xq1 - xr2 + xr1) * yr1 - (yp2 - yp1 - yr2 + yr1) * xq1 + (yp2 - yp1 - yr2 - yr1) * xr1 
+    c = (xp2 - xp1 - xr2 - xr1) * (yq2 - yq1 - yr2 + yr1) - (yp2 - yp1 - yr2 - yr1) * (xq2 - xq1 - xr2 + xr1)
+    d = (b * b) - 4 * a * c
     
-def abcB():
-    return 0
-    
-def abcC():
-    return 0
-    
-def abcD():
-    return 0
+    # if a is neglibible then t goes to - c / b
+    if abs(a) < 1e-8:
+        t = - c / b
+        return getEarliest(t, -1)
+
+    # if d < 0 there are no colissions, so we can return 
+    if d < 0:
+        return -1
+
+    t1 = (-b + math.sqrt(d)) / 2 * a
+    t2 = (-b - math.sqrt(d)) / 2 * a
+    return getEarliest(t1, t2)
+
+# get the lowest of t1 and t2 in [0, 1], if none are in [0, 1], return -1
+def getEarliest(t1, t2):
+    if outRange(t1) and outRange(t2):
+        return -1
+    if outRange(t1):
+        return t2
+    if outRange(t2):
+        return t1
+    if t1 < t2:
+        return t1
+    return t2
+
+# check if t is ouside of the range [0, 1]
+def outRange(t):
+    return t < 0 or t > 1
 
 ### MAIN
 

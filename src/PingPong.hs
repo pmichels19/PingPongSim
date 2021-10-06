@@ -2,7 +2,7 @@ module PingPong where
 
 import           PingPong.Model
 
---import           PingPong.Simulation.Recording
+-- import           PingPong.Simulation.Recording
 import           PingPong.Simulation.Realtime
 
 import           PingPong.Player

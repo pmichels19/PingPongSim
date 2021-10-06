@@ -98,6 +98,7 @@ getCollisionPoint toi rxtoi rytoi qxtoi qytoi pxtoi pytoi
     | sqrt ( (rxtoi - qxtoi)^2 + (rytoi - qytoi)^2 ) - (sqrt ( (rxtoi - pxtoi)^2 + (rytoi - pytoi)^2 ) + sqrt ( (pxtoi - qxtoi)^2 + (pytoi - qytoi)^2 )) < 0.0000001 = Just (Point2 pxtoi pytoi)
     | otherwise = Nothing
 
+-- covered
 -- gets the time of impact based on the a b c and d for the quadratic formula
 getTOI :: Float -> Float -> Float -> Float -> Float
 getTOI a b c d | d < 0 = -1
@@ -111,7 +112,7 @@ getEarliest t1 t2 | (t1 < 0 || t1 > 1) && (t2 < 0 || t2 > 1) = -1
              | t1 < t2 = t1
              | otherwise = t2
 
--- abc formula
+-- abc formula - covered
 -- a = xp1      g = xp2 - xp1
 -- b = yp1      h = yp2 - yp1
 -- c = xr1      i = xr2 - xr1
