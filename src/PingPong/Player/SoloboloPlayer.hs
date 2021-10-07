@@ -21,7 +21,7 @@ import Control.Lens
 -- Change this to something unique! Otherwise, if your opponent also uses sockets
 -- and uses the same port, weird things will happen.
 port :: Integer
-port = 1298
+port = 1250
 
 player :: Player
 player = defaultPlayer

@@ -8,7 +8,7 @@ import math
 # The port you will use to communicate.
 # Change this to something unique! Otherwise, if your opponent also uses sockets
 # and uses the same port, weird things will happen.
-port = 1298
+port = 1250
 
 ### ACTION
 
@@ -83,6 +83,7 @@ def parse_collision_input(data):
 def collision(t1, xp1, yp1, xq1, yq1, xr1, yr1, t2, xp2, yp2, xq2, yq2, xr2, yr2):
     # get time of impact
     toi = getCollisionTime(xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, yr2)
+    print(f"toi: {toi}")
     if toi == -1:
         return "no collision"
     
@@ -117,13 +118,17 @@ def getPointsAtTOI(toi, xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, y
 # get time of collision, if this returns -1, then there is no collision
 def getCollisionTime(xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, yr2):
     # calculate abc formula values
-    a = 2 * xr1 * yr1 + xq1 * yr1 - xp1 * yr1 - yq1 * xr1 + yp1 * xr1 + xp1 * yq1 - yp1 * xq1
-    b = (yq2 - yq1 - yr2 + yr1) * xp1 - (yq2 - yq1 - yr2 + yr1) * xr1 + (xp2 - xp1 - xr2 + xr1) * yq1 - (xp2 - xp1 - xr2 - xr1) * yr1 - (xq2 - xq1 - xr2 + xr1) * yp1 - (xq2 - xq1 - xr2 + xr1) * yr1 - (yp2 - yp1 - yr2 + yr1) * xq1 + (yp2 - yp1 - yr2 - yr1) * xr1 
-    c = (xp2 - xp1 - xr2 - xr1) * (yq2 - yq1 - yr2 + yr1) - (yp2 - yp1 - yr2 - yr1) * (xq2 - xq1 - xr2 + xr1)
+    a = - xq1 * yr1 + xp1 * yr1 + xq2 * yr1 - yr1 * xp2 + xq1 * yp1 - xr1 * yp1 + xq1 * yr2 + xr1 * yq1 - yq1 * xp1 - yr2 * xp1 - yp1 * xq2 - yr2 * xq2 + yp1 * xr2 - yq1 * xr2 + xp1 * yq2 - xr1 * yq2 + xr2 * yq2 + xq2 * yp2 - xq1 * yp2 - xr2 * yp2 + xr1 * yp2 - yq2 * xp2 + yq1 * xp2 + yr2 * xp2
+    b = 2 * xq1 * yr1 - 2 * xp1 * yr1 - xq2 * yr1 + yr1 * xp2 - 2 * xq1 * yp1 + 2 * xr1 * yp1 - xq1 * yr2 - 2 * xr1 * yq1 + 2 * yq1 * xp1 + yr2 * xp1 + yp1 * xq2 - yp1 * xr2 + yq1 * xr2 - xp1 * yq2 + xr1 * yq2 + xq1 * yp2 - xr1 * yp2 - yq1 * xp2
+    c = - xq1 * yr1 + yr1 * xp1 + xq1 * yp1 - xr1 * yp1 + xr1 * yq1 - yq1 * xp1
     d = (b * b) - 4 * a * c
     
+    print(f"found a: {a}\t\t\tb: {b}\t\tc: {c}\t\td: {d}")
     # if a is neglibible then t goes to - c / b
     if abs(a) < 1e-8:
+        # if b is also 0 we have no solutions
+        if abs(b) < 1e-8:
+            return -1
         t = - c / b
         return getEarliest(t, -1)
 
@@ -133,6 +138,7 @@ def getCollisionTime(xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, yr2)
 
     t1 = (-b + math.sqrt(d)) / 2 * a
     t2 = (-b - math.sqrt(d)) / 2 * a
+    print(f"found t1: {t1}\t\t\tt2: {t2}")
     return getEarliest(t1, t2)
 
 # get the lowest of t1 and t2 in [0, 1], if none are in [0, 1], return -1
@@ -149,7 +155,7 @@ def getEarliest(t1, t2):
 
 # check if t is ouside of the range [0, 1]
 def outRange(t):
-    return t < 0 or t > 1
+    return t < 1e-8 or t > (1 - 1e-8)
 
 ### MAIN
 
