@@ -83,7 +83,6 @@ def parse_collision_input(data):
 def collision(t1, xp1, yp1, xq1, yq1, xr1, yr1, t2, xp2, yp2, xq2, yq2, xr2, yr2):
     # get time of impact
     toi = getCollisionTime(xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, yr2)
-    print(f"toi: {toi}")
     if toi == -1:
         return "no collision"
     
@@ -123,7 +122,6 @@ def getCollisionTime(xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, yr2)
     c = - xq1 * yr1 + yr1 * xp1 + xq1 * yp1 - xr1 * yp1 + xr1 * yq1 - yq1 * xp1
     d = (b * b) - 4 * a * c
     
-    print(f"found a: {a}\t\t\tb: {b}\t\tc: {c}\t\td: {d}")
     # if a is neglibible then t goes to - c / b
     if abs(a) < 1e-8:
         # if b is also 0 we have no solutions
@@ -138,7 +136,6 @@ def getCollisionTime(xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, yr2)
 
     t1 = (-b + math.sqrt(d)) / 2 * a
     t2 = (-b - math.sqrt(d)) / 2 * a
-    print(f"found t1: {t1}\t\t\tt2: {t2}")
     return getEarliest(t1, t2)
 
 # get the lowest of t1 and t2 in [0, 1], if none are in [0, 1], return -1
