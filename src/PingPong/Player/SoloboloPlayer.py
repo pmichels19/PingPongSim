@@ -88,19 +88,53 @@ def collision(t1, xp1, yp1, xq1, yq1, xr1, yr1, t2, xp2, yp2, xq2, yq2, xr2, yr2
     
     # check if p is on the line segment rq at time toi
     xpt, ypt, xqt, yqt, xrt, yrt = getPointsAtTOI(toi, xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, yr2)
-    if not onLineSegment(xpt, ypt, xqt, yqt, xrt, yrt):
+    on, mu = onLineSegment(xpt, ypt, xqt, yqt, xrt, yrt)
+    if not on:
         return "no collision"
     
     # get actual time of impact from [0, 1] toi
     t = t1 + toi * (t2 - t1)
 
-    return f"time {t} point {xpt} {ypt} vector 0.1 0.2"
+    # calculate velocity of ball after collision
+    vx, vy = getVelocity(mu, xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, yr2, xqt, yqt, xrt, yrt, t2 - t, t2 - t1)
+
+    return f"time {t} point {xpt} {ypt} vector {vx} {vy}"
+
+def getVelocity(mu, xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, yr2, xqt, yqt, xrt, yrt, tremaining, ttotal):
+    # get velocity of ball after collision
+    vpx, vpy = getVelocityPoint(xp1, yp1, xp2, yp2)
+    # get velocity of point on line segment, let's call it s
+    vsx, vsy = getVelocityPoint(xr1 + mu * xq1, yr1 + mu * yq1, xr2 + mu * xq2, yr2 + mu * yq2)
+    # find relative velocity of p w.r.t. line segment
+    vrelx = vpx - vsx
+    vrely = vpy - vsy
+    # get slope of line segment
+    dy = yqt - yrt
+    dx = xqt - xrt
+    # dx of 0 is equivalent to reflecting in y-axis
+    if dx != 0:
+        m = dy / dx
+        ce = 1 / (1 + (m ** 2))
+        vreturnx = (ce * ((vrelx * (1 - (m ** 2))) + (2 * vrely * m))) + vsx
+        vreturny = (ce * ((2 * vrelx * m) + (vrely * ((m ** 2) - 1)))) + vsy
+    else:
+        vreturnx = -vrelx + vsx
+        vreturny = vrely + vsy
+
+    vt2x = vreturnx * tremaining
+    vt2y = vreturny * tremaining
+    # return result
+    return (vt2x, vt2y)
+
+# get the velocity of one point given its start and endpoint during the motion
+def getVelocityPoint(x1, y1, x2, y2):
+    return (x2 - x1, y2 - y1)
 
 def onLineSegment(xpt, ypt, xqt, yqt, xrt, yrt):
     drp = distance(xrt, yrt, xpt, ypt)
     dpq = distance(xpt, ypt, xqt, yqt)
     drq = distance(xrt, yrt, xqt, yqt)
-    return abs(drq - (drp + dpq)) < 1e-8
+    return abs(drq - (drp + dpq)) < 1e-8, drp / drq
 
 def distance(ax, ay, bx, by):
     return math.sqrt(((bx - ax) ** 2) + ((by - ay) ** 2))
