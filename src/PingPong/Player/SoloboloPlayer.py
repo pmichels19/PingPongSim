@@ -103,8 +103,12 @@ def collision(t1, xp1, yp1, xq1, yq1, xr1, yr1, t2, xp2, yp2, xq2, yq2, xr2, yr2
 def getVelocity(mu, xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, yr2, xqt, yqt, xrt, yrt, tremaining, ttotal):
     # get velocity of ball after collision
     vpx, vpy = getVelocityPoint(xp1, yp1, xp2, yp2)
+    vpx = vpx / ttotal
+    vpy = vpy / ttotal
     # get velocity of point on line segment, let's call it s
     vsx, vsy = getVelocityPoint(xr1 + mu * xq1, yr1 + mu * yq1, xr2 + mu * xq2, yr2 + mu * yq2)
+    vsx = vsx / ttotal
+    vsy = vsy / ttotal
     # find relative velocity of p w.r.t. line segment
     vrelx = vpx - vsx
     vrely = vpy - vsy
@@ -122,9 +126,10 @@ def getVelocity(mu, xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, yr2, 
         vreturny = vrely + vsy
     
     # vector from pt* to pt2
-    vt2x = vreturnx * tremaining
-    vt2y = vreturny * tremaining
+    vt2x = vreturnx
+    vt2y = vreturny
     # return result
+    # result currently has right direction, but not the right size :/
     return (vt2x, vt2y)
 
 # get the velocity of one point given its start and endpoint during the motion
