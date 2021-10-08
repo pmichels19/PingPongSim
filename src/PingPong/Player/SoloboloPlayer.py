@@ -80,35 +80,40 @@ def parse_collision_input(data):
     return t1, xp1, yp1, xq1, yq1, xr1, yr1, t2, xp2, yp2, xq2, yq2, xr2, yr2
 
 # The collision function
-def collision(t1, xp1, yp1, xq1, yq1, xr1, yr1, t2, xp2, yp2, xq2, yq2, xr2, yr2):
+def collision(t1, xp1, yp1, xq1, yq1, xr1, yr1, t2, xp2, yp2, xq2, yq2, xr2, yr2, reverse = False):
     # get time of impact
     toi = getCollisionTime(xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, yr2)
     if toi == -1:
+        if not reverse:
+            return collision(t1, xp1, yp1, xr1, yr1, xq1, yq1, t2, xp2, yp2, xr2, yr2, xq2, yq2, True)
         return "no collision"
     
     # check if p is on the line segment rq at time toi
     xpt, ypt, xqt, yqt, xrt, yrt = getPointsAtTOI(toi, xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, yr2)
     on, mu = onLineSegment(xpt, ypt, xqt, yqt, xrt, yrt)
     if not on:
+        if not reverse:
+            return collision(t1, xp1, yp1, xr1, yr1, xq1, yq1, t2, xp2, yp2, xr2, yr2, xq2, yq2, True)
         return "no collision"
     
     # get actual time of impact from [0, 1] toi
     t = t1 + toi * (t2 - t1)
 
     # calculate velocity of ball after collision
-    vx, vy = getVelocity(mu, xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, yr2, xqt, yqt, xrt, yrt, t2 - t, t2 - t1)
+    vx, vy = getVelocity(mu, xp2, yp2, xq2, yq2, xr2, yr2, xpt, ypt, xqt, yqt, xrt, yrt, t2 - t, t2 - t1)
 
     return f"time {t} point {xpt} {ypt} vector {vx} {vy}"
 
-def getVelocity(mu, xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, yr2, xqt, yqt, xrt, yrt, tremaining, ttotal):
+def getVelocity(mu, xp2, yp2, xq2, yq2, xr2, yr2, xpt, ypt, xqt, yqt, xrt, yrt, tremaining, ttotal):
     # get velocity of ball after collision
-    vpx, vpy = getVelocityPoint(xp1, yp1, xp2, yp2)
-    vpx = vpx / ttotal
-    vpy = vpy / ttotal
+    vpx, vpy = getVelocityPoint(xpt, ypt, xp2, yp2)
+    vpx = vpx / tremaining
+    vpy = vpy / tremaining
     # get velocity of point on line segment, let's call it s
-    vsx, vsy = getVelocityPoint(xr1 + mu * xq1, yr1 + mu * yq1, xr2 + mu * xq2, yr2 + mu * yq2)
-    vsx = vsx / ttotal
-    vsy = vsy / ttotal
+    # last two parameters here are wrong
+    vsx, vsy = getVelocityPoint(xpt, ypt, xr2 + mu * (xq2 - xr2), yr2 + mu * (yq2 - yr2))
+    vsx = vsx / tremaining
+    vsy = vsy / tremaining
     # find relative velocity of p w.r.t. line segment
     vrelx = vpx - vsx
     vrely = vpy - vsy
@@ -126,10 +131,9 @@ def getVelocity(mu, xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, yr2, 
         vreturny = vrely + vsy
     
     # vector from pt* to pt2
-    vt2x = vreturnx
-    vt2y = vreturny
+    vt2x = vreturnx * tremaining / ttotal * (ttotal / tremaining)
+    vt2y = vreturny * tremaining / ttotal * (ttotal / tremaining)
     # return result
-    # result currently has right direction, but not the right size :/
     return (vt2x, vt2y)
 
 # get the velocity of one point given its start and endpoint during the motion
