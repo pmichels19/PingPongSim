@@ -8,7 +8,7 @@ import math
 # The port you will use to communicate.
 # Change this to something unique! Otherwise, if your opponent also uses sockets
 # and uses the same port, weird things will happen.
-port = 1250
+port = 1251
 
 ### ACTION
 
@@ -120,7 +120,8 @@ def getVelocity(mu, xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, yr2, 
     else:
         vreturnx = -vrelx + vsx
         vreturny = vrely + vsy
-
+    
+    # vector from pt* to pt2
     vt2x = vreturnx * tremaining
     vt2y = vreturny * tremaining
     # return result
