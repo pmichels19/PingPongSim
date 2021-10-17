@@ -1,4 +1,4 @@
-module PingPong.Player.SoloboloPlayer (player, collision) where
+module PingPong.Player.SoloboloPlayer (player, collision, plan) where
 
 import PingPong.Model
 import PingPong.Player

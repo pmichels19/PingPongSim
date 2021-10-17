@@ -32,6 +32,7 @@ library
     PingPong.Player.NativePlayer
     PingPong.Player.ArgPlayer
     PingPong.Player.SocketPlayer
+    PingPong.Player.SoloboloPlayer
     PingPong.Simulation  
     PingPong.Simulation.Collision  
     PingPong.Simulation.Recording
