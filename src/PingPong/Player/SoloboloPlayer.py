@@ -178,8 +178,8 @@ def getCollisionTime(xp1, yp1, xq1, yq1, xr1, yr1, xp2, yp2, xq2, yq2, xr2, yr2)
     if d < 0:
         return -1
 
-    t1 = (-b + math.sqrt(d)) / 2 * a
-    t2 = (-b - math.sqrt(d)) / 2 * a
+    t1 = (-b + math.sqrt(d)) / (2 * a)
+    t2 = (-b - math.sqrt(d)) / (2 * a)
     return getEarliest(t1, t2)
 
 # get the lowest of t1 and t2 in [0, 1], if none are in [0, 1], return -1
