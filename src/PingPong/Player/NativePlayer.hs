@@ -1,4 +1,4 @@
-module PingPong.Player.NativePlayer (player, collision) where
+module PingPong.Player.NativePlayer (player, collision, plan) where
 
 import Control.Lens
 import Data.Geometry
@@ -59,4 +59,18 @@ collision (time1, point1, segment1) (time2, point2, segment2) = do
       Point2 xq2 yq2 = segment2 ^. start ^. core
       Point2 xr1 yr1 = segment1 ^. end   ^. core
       Point2 xr2 yr2 = segment2 ^. end   ^. core
+  return Nothing
+
+
+-- FOR EXERCISE B2 --
+
+-- For a given robot arm and a desired configuration and velocity of the bat,
+-- Check if it is possible to reach this desired configuration. If so, return
+-- the list of configuration parameters (joint angles) and velocities (angular
+-- speeds).
+plan :: (Float, Arm) -- location and description of the arm
+     -> (Point 2 Float, Vector 2 Float, Vector 2 Float) -- desired point of collision, orientation of bat, and velocity of the bat
+     -> IO (Maybe ([Float], [Float])) -- output position and angular velocity of the arm
+
+plan (x, arm) (pos, ori, vel) = do
   return Nothing

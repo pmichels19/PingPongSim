@@ -1,4 +1,4 @@
-module PingPong.Player.SocketPlayer (player, collision) where
+module PingPong.Player.SocketPlayer (player, collision, plan) where
 
 import PingPong.Model
 import PingPong.Player
@@ -21,7 +21,7 @@ import Control.Lens
 -- Change this to something unique! Otherwise, if your opponent also uses sockets
 -- and uses the same port, weird things will happen.
 port :: Integer
-port = 1245
+port = 1234
 
 player :: Player
 player = defaultPlayer
@@ -78,3 +78,15 @@ collision state1 state2 = connect "127.0.0.1" (show port) $ \(connectSocket, con
   answer <- ByteString.recv connectSocket 4096
   return $ readCollisionOutput (BSUTF8.toString answer)
 
+
+-- FOR EXERCISE B2 --
+
+plan :: (Float, Arm) -- location and description of the arm
+     -> (Point 2 Float, Vector 2 Float, Vector 2 Float) -- desired point of collision, orientation of bat, and velocity of the bat
+     -> IO (Maybe ([Float], [Float])) -- output position and angular velocity of the arm
+
+plan xarm goal = connect "127.0.0.1" (show port) $ \(connectSocket, connectRemoteAddr) -> do
+  let message = "plan\n" ++ writePlanInput xarm goal ++ "%"
+  ByteString.send connectSocket (BSUTF8.fromString message)
+  answer <- ByteString.recv connectSocket 4096
+  return $ readPlanOutput (BSUTF8.toString answer)

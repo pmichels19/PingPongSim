@@ -14,10 +14,9 @@ import System.Random
 -- TESTING COLLISION FUNCTION OF NativePlayer
 
 import qualified PingPong.Player.NativePlayer as NativePlayer
-import qualified PingPong.Player.SoloboloPlayer as SoloboloPlayer
 
 main :: IO ()
-main = testCollisions SoloboloPlayer.collision 
+main = testCollisions NativePlayer.collision 
 --main = testCollisions defaultCollisionChecker
 
 

@@ -69,6 +69,9 @@ printBallState bs = "loc " ++ printPoint (loc bs) ++ "\n"
 
 printPoint :: Show r => Point 2 r -> String
 printPoint p = (show $ view xCoord p) ++ " " ++ (show $ view yCoord p)
+
+printSegment :: Show r => LineSegment 2 () r -> String
+printSegment s = printPoint (s ^. start ^. core) ++ " " ++ printPoint (s ^. end ^. core)
   
 printArm :: Arm -> String
 printArm arm = unwords (map printElement arm)
@@ -76,6 +79,9 @@ printArm arm = unwords (map printElement arm)
 printElement :: Element -> String
 printElement (Joint _ x) = "joint " ++ show x
 printElement (Link  _ x) = "link "  ++ show x
+
+printMotion :: Motion -> String
+printMotion = unwords . map show
 
 readMotion :: String -> Motion
 readMotion = map read . words
@@ -87,17 +93,9 @@ writeCollisionInput :: (Float, Point 2 Float, LineSegment 2 () Float)
                     -> (Float, Point 2 Float, LineSegment 2 () Float) 
                     -> String
 
-writeCollisionInput (time1, point1, segment1) (time2, point2, segment2) =
-  let Point2 xp1 yp1 = point1
-      Point2 xp2 yp2 = point2
-      Point2 xq1 yq1 = segment1 ^. start ^. core
-      Point2 xq2 yq2 = segment2 ^. start ^. core
-      Point2 xr1 yr1 = segment1 ^. end   ^. core
-      Point2 xr2 yr2 = segment2 ^. end   ^. core
-  in      "time " ++ show time1 ++ " point " ++ show xp1 ++ " " ++ show yp1
-      ++ " segment " ++ show xq1 ++ " " ++ show yq1 ++ " " ++ show xr1 ++ " " ++ show yr1 ++ "\n"
-      ++  "time " ++ show time2 ++ " point " ++ show xp2 ++ " " ++ show yp2
-      ++ " segment " ++ show xq2 ++ " " ++ show yq2 ++ " " ++ show xr2 ++ " " ++ show yr2 ++ "\n"
+writeCollisionInput (time1, point1, segment1) (time2, point2, segment2) 
+  =  "time " ++ show time1 ++ " point " ++ printPoint point1 ++ " segment " ++ printSegment segment1 ++ "\n"
+  ++ "time " ++ show time2 ++ " point " ++ printPoint point2 ++ " segment " ++ printSegment segment2 ++ "\n"
 
 
 writeCollisionOutput :: Maybe (Float, Point 2 Float, Vector 2 Float) -> String
@@ -113,3 +111,25 @@ readCollisionWords :: [String] -> Maybe (Float, Point 2 Float, Vector 2 Float)
 readCollisionWords ["no", "collision"] = Nothing
 readCollisionWords [_, t, _, xp, yp, _, xv, yv] = Just (read t, Point2 (read xp) (read yp), Vector2 (read xv) (read yv))
 readCollisionWords ws = error $ "cannot parse message: " ++ unwords ws
+
+-- communication for Plan
+
+-- Convert input to the collision checker to a string.
+writePlanInput :: (Float, Arm) -- location and description of the arm
+               -> (Point 2 Float, Vector 2 Float, Vector 2 Float)  -- desired point of collision, orientation of bat, and velocity of the bat
+               -> String
+writePlanInput (x, arm) (p, n, v) 
+  =  "foot " ++ show x ++ " arm " ++ printArm arm ++ "\n"
+  ++ "point " ++ printPoint p ++ " normal " ++ printPoint (origin .+^ n) ++ " velocity " ++ printPoint (origin .+^ v) ++ "\n"
+  
+
+writePlanOutput :: Maybe ([Float], [Float]) -> String
+writePlanOutput Nothing = "impossible"
+writePlanOutput (Just (angles, speeds)) = "angles " ++ printMotion angles ++ "\n"
+                                       ++ "speeds " ++ printMotion speeds ++ "\n"
+
+-- Read the output for the collision checker from a string.
+readPlanOutput :: String -> Maybe ([Float], [Float]) -- output position and angular velocity of the arm
+readPlanOutput "impossible" = Nothing
+readPlanOutput str = case lines str of [l1, l2] -> Just (map read $ tail $ words l1, map read $ tail $ words l2)
+                                       _        -> error $ "readPlanOutput: cannot parse message \"" ++ str ++ "\""

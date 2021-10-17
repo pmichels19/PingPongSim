@@ -9,6 +9,7 @@ import Data.Geometry.PolyLine
 import Data.Geometry.Polygon
 
 import Data.Ext
+import Data.List hiding (filter, map, null)
 import Control.Lens
 
 import Data.Colour
@@ -166,12 +167,13 @@ evaluate arm = map (origin .+^)
              $ map (flip transformBy $ Vector2 0 0) 
              $ globalize $ transformations arm
 
+evaluateU :: Arm -> [Point 2 Float]
+evaluateU = nub . evaluate
+
 evaluateP :: Arm -> PolyLine 2 () Float
 evaluateP arm = fromPointsUnsafe
               $ map (:+ ())
               $ evaluate arm
-
-
 
 
 armSegments :: Player -> Bool -> [LineSegment 2 () Float]
@@ -183,10 +185,6 @@ armSegments p f =
       fps = map (:+ ()) nps
   in zipWith (OpenLineSegment) (init fps) (tail fps)
 
-
-
-
- 
 
 
 

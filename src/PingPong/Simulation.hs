@@ -22,6 +22,8 @@ import Data.Vinyl.CoRec
 import Debug.Trace
 
 import System.Random
+import System.Process
+import Control.Concurrent
 
 serveBall :: Bool -> IO BallState
 serveBall p = do
@@ -314,7 +316,6 @@ applyMotion :: Float -> Float -> Float -> Float
 applyMotion f x a = a + f * x
 
 
-
 -- ball step
 straightBallStep :: Float -> BallState -> BallState
 straightBallStep f st = st { loc = loc st .+^ f *^ dir st }
@@ -342,3 +343,16 @@ collide' checker i (t0, b0, s0) (t1, b1, s1) = do
   case check of Nothing        -> return (t1, Air, (b1 .-. b0) ^/ (t1 - t0))
                 Just (t, p, v) -> return (t, i, v)
 
+
+
+
+
+
+
+
+-- communication
+
+prepareAll :: IO ()
+prepareAll = do
+  spawnCommand ("killall python3")
+  threadDelay 100000  

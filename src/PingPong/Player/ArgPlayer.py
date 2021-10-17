@@ -73,6 +73,35 @@ def collision(t1, xp1, yp1, xq1, yq1, xr1, yr1, t2, xp2, yp2, xq2, yq2, xr2, yr2
     return "time 15 point 0.2 0.3 vector 0.4 0.5"
 
 
+### PLAN
+
+
+# Handle a "plan" message
+def handle_plan(message):
+    foot, arm, xp, yp, xn, yn, xv, yv = parse_plan_input (message)
+    return plan (foot, arm, xp, yp, xn, yn, xv, yv)
+
+# Takes a formatted string and breaks it into seperate variables
+def parse_plan_input(data):
+    lines = data.split("\n")
+    line1_words = lines[1].split(" ")
+    line2_words = lines[2].split(" ")
+    foot = float(line1_words[1])
+    del line1_words [0:2]
+    arm  = line1_words
+    xp   = float(line2_words[1])
+    yp   = float(line2_words[2])
+    xn   = float(line2_words[4])
+    yn   = float(line2_words[5])
+    xv   = float(line2_words[7])
+    yv   = float(line2_words[8])
+    return foot, arm, xp, yp, xn, yn, xv, yv
+
+# The plan function
+def plan(foot, arm, xp, yp, xn, yn, xv, yv):
+    return "impossible"
+
+
 # Main function
 if __name__ == "__main__":
     message = sys.argv[1]
@@ -80,6 +109,7 @@ if __name__ == "__main__":
 
     if command == "action"   : output = handle_action    (message)
     if command == "collision": output = handle_collision (message)
+    if command == "plan"     : output = handle_plan      (message)
 
     print (output)
 

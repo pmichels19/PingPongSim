@@ -24,6 +24,8 @@ play = playWithCollision defaultCollisionChecker
 
 playWithCollision :: CollisionChecker -> Player -> Player -> IO ()
 playWithCollision checker ip1 ip2 = do
+  -- clean up any running python processes
+  prepareAll
   prepare ip1
   prepare ip2
   initialState <- initBeforeGame $ defState {p1 = ip1, p2 = ip2}

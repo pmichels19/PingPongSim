@@ -8,7 +8,7 @@ import math
 # The port you will use to communicate.
 # Change this to something unique! Otherwise, if your opponent also uses sockets
 # and uses the same port, weird things will happen.
-port = 1245
+port = 1234
 
 ### ACTION
 
@@ -41,7 +41,7 @@ def format_action_output(motion):
 
 # The function where the magic happens
 def action(current_time, last_hit_time, last_hit_object, ball_location, ball_velocity, arm_configuration):
-    return [1, -1, current_time, 2, -2]
+    return [1.1, 0.8, 0.5, 0.2, 2]
 
 
 ### COLLISION
@@ -77,6 +77,35 @@ def collision(t1, xp1, yp1, xq1, yq1, xr1, yr1, t2, xp2, yp2, xq2, yq2, xr2, yr2
     return "time 15 point 0.1 0.2 vector 0.1 0.2"
 
 
+### PLAN
+
+
+# Handle a "plan" message
+def handle_plan(message):
+    foot, arm, xp, yp, xn, yn, xv, yv = parse_plan_input (message)
+    return plan (foot, arm, xp, yp, xn, yn, xv, yv)
+
+# Takes a formatted string and breaks it into seperate variables
+def parse_plan_input(data):
+    lines = data.split("\n")
+    line1_words = lines[1].split(" ")
+    line2_words = lines[2].split(" ")
+    foot = float(line1_words[1])
+    del line1_words [0:2]
+    arm  = line1_words
+    xp   = float(line2_words[1])
+    yp   = float(line2_words[2])
+    xn   = float(line2_words[4])
+    yn   = float(line2_words[5])
+    xv   = float(line2_words[7])
+    yv   = float(line2_words[8])
+    return foot, arm, xp, yp, xn, yn, xv, yv
+
+# The plan function
+def plan(foot, arm, xp, yp, xn, yn, xv, yv):
+    return "impossible"
+
+
 ### MAIN
 
 # Main function
@@ -100,6 +129,7 @@ if __name__ == "__main__":
 
           if command == "action"   : output = handle_action    (message)
           if command == "collision": output = handle_collision (message)
+          if command == "plan"     : output = handle_plan      (message)
 
           conn.sendall(output.encode('utf-8'))
           conn.close()

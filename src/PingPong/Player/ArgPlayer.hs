@@ -9,6 +9,10 @@ import System.Process
 
 import Data.Colour
 import Data.Colour.SRGB
+import Data.Geometry
+import Data.Ext
+
+import Control.Lens
 
 player :: Player
 player = defaultPlayer 
@@ -58,3 +62,14 @@ collision state1 state2 = do
   (errCode, outRPL, errRPL) <- readProcessWithExitCode "python3" ["src/PingPong/Player/ArgPlayer.py", message] ""
   if not $ null errRPL then error errRPL 
                        else return $ readCollisionOutput outRPL
+
+-- FOR EXERCISE B2 --
+
+plan :: (Float, Arm) -- location and description of the arm
+     -> (Point 2 Float, Vector 2 Float, Vector 2 Float) -- desired point of collision, orientation of bat, and velocity of the bat
+     -> IO (Maybe ([Float], [Float])) -- output position and angular velocity of the arm
+plan xarm goal = do
+  let message = "plan\n" ++ writePlanInput xarm goal ++ "%"
+  (errCode, outRPL, errRPL) <- readProcessWithExitCode "python3" ["src/PingPong/Player/ArgPlayer.py", message] ""
+  if not $ null errRPL then error errRPL 
+                       else return $ readPlanOutput outRPL
