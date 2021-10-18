@@ -15,5 +15,3 @@ main :: IO ()
 main = play SoloboloPlayer.player NativePlayer.player
 --main = playWithCollision NativePlayer.collision 
 --       SocketPlayer.player NativePlayer.player
-
-       

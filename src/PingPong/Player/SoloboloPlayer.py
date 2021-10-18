@@ -3,6 +3,7 @@ import sys
 import socket
 import string
 import math
+import numpy as np
 
 
 # The port you will use to communicate.
@@ -230,7 +231,68 @@ def parse_plan_input(data):
 
 # The plan function
 def plan(foot, arm, xp, yp, xn, yn, xv, yv):
+    # get the angles of all joints and lenghts of all links
+    arm_config = arm.split(" ")
+    link_lenghts = []
+    joint_angles = []
+    for i in range( len(arm_config) ):
+        if arm[i] == "joint":
+            i = i + 1
+            joint_angles.append( float( arm[i] ) )
+        if arm[i] == "link":
+            i = i + 1
+            link_lenghts.append( float( arm[i] ) )
+    # get line segment end points using normal vector and middle point
+    xr, yr, xq, yq = getBatEndpoints(xp, yp, xn, yn)
+    # use endpoints as base and end for bat
+    useCCD(foot, link_lenghts, joint_angles, xr, yr, xq, yq, 200)
     return "impossible"
+
+# Coordinate descent, will try to put base of last link on r and end of last link on q => assumes |rq| = |last link|
+def useCCD(foot, lengths, angles, xr, yr, xq, yq, limit):
+    link_lengths = lengths[:-1]
+    joint_angles = angles[:-1]
+    root = len(link_lengths) - 1
+    for _ in range(limit):
+        rootx, rooty = getSegRoot(foot, link_lengths, joint_angles, root)
+        root = root - 1
+        if root == -1:
+            root += len(link_lengths)
+        return 1
+    return 1
+
+# Get x and y of the root of the line segment indicated by the index
+def getSegRoot(foot, lengths, angles, index):
+    footTranslation = np.array([[1, 0, foot], [0, 1, 0], [0, 0, 1]])
+    baseTranslation = np.array([[1, 0, 0], [0, 1, lengths[0]], [0, 0, 1]])
+    # T = I * Tran1(foot) * Tran2(base) because of how my arm looks
+    transformation = np.matmul(footTranslation, baseTranslation)
+    i = 0
+    while (i <= index - 1):
+        # get the transformation for every link: rotation of joint i with translation along y axis of link i + 1
+        phi = angles[i]
+        rotation = np.array([[math.cos( phi ), -math.sin( phi ), 0], [math.sin( phi ), math.cos( phi ), 0], [0, 0, 1]])
+        translation = np.array([[1, 0, 0], [0, 1, lengths[i + 1]], [0, 0, 1]])
+        modifier = np.matmul(rotation, translation)
+        # multiply with total transformation
+        transformation = np.matmul(transformation, modifier)
+    # root coordinate as homogenous vector
+    root = np.matmul(transformation, np.array([[0], [0], [1]]))
+    # extract x and y from homogenous vector
+    return (root[0, 0], root[1, 0])
+
+
+def getBatEndpoints(xp, yp, xn, yn):
+    xl = -yn
+    yl =  xn
+    normLen = math.sqrt( (xl ** 2) + (yl ** 2) )
+    scaledx = (0.05 / normLen) * xl
+    scaledy = (0.05 / normLen) * yl
+    xr = xp + scaledx
+    yr = yp + scaledy
+    xq = xp - scaledx
+    yq = yp + scaledy
+    return (xr, yr, xq, yq)
 
 ############################################################################################################################################################################
 ############################################################################################################################################################################
