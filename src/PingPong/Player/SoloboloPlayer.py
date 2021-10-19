@@ -245,21 +245,55 @@ def plan(foot, arm, xp, yp, xn, yn, xv, yv):
     # get line segment end points using normal vector and middle point
     xr, yr, xq, yq = getBatEndpoints(xp, yp, xn, yn)
     # use endpoints as base and end for bat
-    useCCD(foot, link_lenghts, joint_angles, xr, yr, xq, yq, 200)
+    target_angles1 = getTargetAngles(foot, link_lenghts, joint_angles, xr, yr, xq, yq, 200)
+    target_angles2 = getTargetAngles(foot, link_lenghts, joint_angles, xq, yq, xr, yr, 200)
+    # TODO - calculate which, if any, of the two angles is easier/faster to obtain and then use that one.
     return "impossible"
 
 # Coordinate descent, will try to put base of last link on r and end of last link on q => assumes |rq| = |last link|
-def useCCD(foot, lengths, angles, xr, yr, xq, yq, limit):
+def getTargetAngles(foot, lengths, angles, xr, yr, xq, yq, limit):
     link_lengths = lengths[:-1]
     joint_angles = angles[:-1]
-    root = len(link_lengths) - 1
+    root = len(joint_angles)
     for _ in range(limit):
-        rootx, rooty = getSegRoot(foot, link_lengths, joint_angles, root)
+        # go down the joints
         root = root - 1
         if root == -1:
-            root += len(link_lengths)
-        return 1
-    return 1
+            root += len(joint_angles)
+        # get root coordinates of current link
+        rootx, rooty = getSegRoot(foot, link_lengths, joint_angles, root)
+        # get coordinates of end effector
+        endx, endy = getEndEffector(foot, link_lengths, joint_angles)
+        # check if end effector is close enough to desired location
+        if distance(endx, endy, xr, yr) < 1e-8:
+            # TODO adjust the last angle, so the bat goes from r to q and not from r to somewhere random
+            return joint_angles
+        
+        # normalized vector from current root to current end effector
+        rootEndx, rootEndy = normalize(endx - rootx, endy - rooty)
+        # normalized vector from current root to desired end location
+        rootDesx, rootDesy = normalize(xr - rootx, yr - rooty)
+        # calculate dot product of rootEnd and rootDes to get cos(angle) between the two vectors
+        cosAngle = rootEndx * rootDesx + rootEndy * rootDesy
+        if abs(1 - cosAngle) < 1e-8:
+            continue
+        # check z value of cross product of rootDes x rootEnd to get direction of rotation
+        crossz = rootDesx * rootEndy - rootDesy * rootEndx
+        # get angle from cosAngle
+        turnAngle = math.acos(cosAngle)
+        # rotate the current joint
+        if crossz > 0:
+            joint_angles[root] -= turnAngle
+        elif crossz < 0:
+            joint_angles[root] += turnAngle
+            
+    # TODO adjust the last angle, so the bat goes from r to q and not from r to somewhere random
+    return joint_angles
+
+# gives the normalized vector described by x and y
+def normalize(x, y):
+    size = math.sqrt((x ** 2) + (y ** 2))
+    return ((x / size), (y / size))
 
 # Get x and y of the root of the line segment indicated by the index
 def getSegRoot(foot, lengths, angles, index):
@@ -276,11 +310,16 @@ def getSegRoot(foot, lengths, angles, index):
         modifier = np.matmul(rotation, translation)
         # multiply with total transformation
         transformation = np.matmul(transformation, modifier)
+        # loop variable increment
+        i = i + 1
     # root coordinate as homogenous vector
     root = np.matmul(transformation, np.array([[0], [0], [1]]))
     # extract x and y from homogenous vector
     return (root[0, 0], root[1, 0])
 
+# returns the end effector, i.e. the root of the link forming the bat
+def getEndEffector(foot, lengths, angles):
+    return getSegRoot(foot, lengths, angles, len(angles))
 
 def getBatEndpoints(xp, yp, xn, yn):
     xl = -yn
