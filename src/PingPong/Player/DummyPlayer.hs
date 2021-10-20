@@ -31,7 +31,7 @@ dummyArm = [ Link  black 0.1
            , Link  black 0.05
            , Joint black 2.615944148555583
            , Link  black 0.05
-           , Joint black 1.3108045223047013
+           , Joint black 0.5253074248378178
            , Link  black 0.1
         ]
 
