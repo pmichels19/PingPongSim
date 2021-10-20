@@ -231,57 +231,80 @@ def parse_plan_input(data):
 
 # The plan function
 def plan(foot, arm, xp, yp, xn, yn, xv, yv):
-    # get the angles of all joints and lenghts of all links
-    link_lenghts = []
-    joint_angles = []
-    for i in range( len(arm) ):
-        if arm[i] == "joint":
-            i = i + 1
-            joint_angles.append( float( arm[i] ) )
-        if arm[i] == "link":
-            i = i + 1
-            link_lenghts.append( float( arm[i] ) )
-    # get line segment end points using normal vector and middle point
+    # get rid of the word 'arm' in the first entry of the arm
+    del arm[0]
+    # extract current arm configuration to a more sensible list of lists: [joint, rotation] or [link, length]
+    i = 0
+    arm_config = []
+    while i in range(len(arm)):
+        arm_config.append( [arm[i], float(arm[i + 1])] )
+        i = i + 2
+    # get end points of target line segment using normal vector and middle point
     xr, yr, xq, yq = getBatEndpoints(xp, yp, xn, yn)
-    # use endpoints as base and end for bat
-    target_angles1 = getTargetAngles(foot, link_lenghts, joint_angles, xr, yr, xq, yq, 100)
-    target_angles2 = getTargetAngles(foot, link_lenghts, joint_angles, xq, yq, xr, yr, 100)
+    print(f"bat end points: r ({xr}, {yr}) and q ({xq}, {yq})")
+    # use endpoints as target base and end for bat in both directions to be sure
+    target_angles1 = getTargetAngles(foot, arm_config, xr, yr, xq, yq, 100)
+    target_angles2 = getTargetAngles(foot, arm_config, xq, yq, xr, yr, 100)
     # TODO - calculate which, if any, of the two angles is easier/faster to obtain and then use that one.
-    print(f"{target_angles1}\n\n")
+    print(f"angles1: {target_angles1}\t\tangles2: {target_angles2}\n\n")
     return "impossible"
 
 # Coordinate descent, will try to put base of last link on r and end of last link on q => assumes |rq| = |last link|
-def getTargetAngles(foot, lengths, angles, xr, yr, xq, yq, limit):
-    link_lengths = lengths[:-1]
-    joint_angles = angles[:-1]
-    root = len(joint_angles)
+def getTargetAngles(foot, arm, xr, yr, xq, yq, limit):
+    # get the arm without the last link and its joint
+    noBatArm = arm[:-2]
+    # get the amount of joints in the batless arm
+    jointCount = 0
+    for tup in noBatArm:
+        if tup[0] == "joint":
+            jointCount += 1
+    # start from the upper most joint
+    root = jointCount
     for _ in range(limit):
-        # go down the joints
-        root = root - 1
-        if root == -1:
-            root += len(joint_angles)
+        if root == 0:
+            root += jointCount
         
         # get root coordinates of current link
-        rootx, rooty = getSegRoot(foot, link_lengths, joint_angles, root)
+        rootx, rooty = getSegRoot(foot, noBatArm, root)
         # get coordinates of end effector
-        endx, endy = getEndEffector(foot, link_lengths, joint_angles)
+        endx, endy = getEndEffector(foot, noBatArm)
         # check if end effector is close enough to desired location
         if distance(endx, endy, xr, yr) < 1e-8:
             break
 
+        # get the angle by which to turn
         turnAngle = getCorrectionAngle(xr, yr, endx, endy, rootx, rooty)
         if np.isnan(turnAngle):
             continue
 
-        joint_angles[root] += turnAngle
+        # change the angle of the joint in question
+        count = 0
+        for tup in noBatArm:
+            if tup[0] != "joint":
+                continue
+
+            count += 1
+            if count == root:
+                tup[1] += turnAngle
+                break
+        
+        # go down the joints
+        root = root - 1
     
-    # perform correction of bat end to q
-    result_angles = joint_angles.copy()
-    result_angles.append(angles[-1])
+    # copy the angles of the arm without bat to the original arm
+    for i in range(len(noBatArm)):
+        if noBatArm[i][0] == "joint":
+            arm[i][1] = noBatArm[i][1]
     # get root coordinates of current link
-    rootx, rooty = getSegRoot(foot, lengths, result_angles, root)
+    rootx, rooty = getSegRoot(foot, arm, jointCount + 1)
     # get coordinates of end effector
-    endx, endy = getEndEffector(foot, lengths, result_angles)
+    endx, endy = getEndEffector(foot, arm)
+    # extract the final angles from the arm
+    result_angles = []
+    for tup in arm:
+        if tup[0] == "joint":
+            result_angles.append(tup[1])
+    # get the rotation needed to align the bat properly
     lastCorrection = getCorrectionAngle(xq, yq, endx, endy, rootx, rooty)
     if np.isnan(lastCorrection):
         return result_angles
@@ -312,33 +335,31 @@ def getCorrectionAngle(targetx, targety, endx, endy, rootx, rooty):
 # gives the normalized vector described by x and y
 def normalize(x, y):
     size = math.sqrt((x ** 2) + (y ** 2))
+    if size < 1e-8:
+        return (0, 0)
     return ((x / size), (y / size))
 
-# Get x and y of the root of the line segment indicated by the index
-def getSegRoot(foot, lengths, angles, index):
-    footTranslation = np.array([[1, 0, foot], [0, 1, 0], [0, 0, 1]])
-    baseTranslation = np.array([[1, 0, 0], [0, 1, lengths[0]], [0, 0, 1]])
-    # T = I * Tran1(foot) * Tran2(base) because of how my arm looks
-    transformation = np.matmul(footTranslation, baseTranslation)
-    i = 0
-    while (i <= index - 1):
-        # get the transformation for every link: rotation of joint i with translation along y axis of link i + 1
-        phi = angles[i]
-        rotation = np.array([[math.cos( phi ), -math.sin( phi ), 0], [math.sin( phi ), math.cos( phi ), 0], [0, 0, 1]])
-        translation = np.array([[1, 0, 0], [0, 1, lengths[i + 1]], [0, 0, 1]])
-        modifier = np.matmul(rotation, translation)
-        # multiply with total transformation
-        transformation = np.matmul(transformation, modifier)
-        # loop variable increment
-        i = i + 1
-    # root coordinate as homogenous vector
+# goes through the arm, until the joint_base joint
+def getSegRoot(foot, arm, joint_base):
+    transformation = np.array([[1, 0, foot], [0, 1, 0], [0, 0, 1]])
+    joint_count = 0
+    for tup in arm:
+        # increase the joint count if we get a joint
+        if tup[0] == "joint":
+            joint_count += 1
+            # if this joint brings us to the joint_base joint, we have found the desired root
+            if joint_count == joint_base:
+                break
+            phi = tup[1]
+            transformation = np.matmul(transformation, np.array([[math.cos( phi ), -math.sin( phi ), 0], [math.sin( phi ), math.cos( phi ), 0], [0, 0, 1]]))
+        elif tup[0] == "link":
+            transformation = np.matmul(transformation, np.array([[1, 0, 0], [0, 1, tup[1]], [0, 0, 1]]))
     root = np.matmul(transformation, np.array([[0], [0], [1]]))
-    # extract x and y from homogenous vector
     return (root[0, 0], root[1, 0])
 
 # returns the end effector, i.e. the root of the link forming the bat
-def getEndEffector(foot, lengths, angles):
-    return getSegRoot(foot, lengths, angles, len(angles))
+def getEndEffector(foot, arm):
+    return getSegRoot(foot, arm, len(arm))
 
 def getBatEndpoints(xp, yp, xn, yn):
     xl = -yn
@@ -349,7 +370,7 @@ def getBatEndpoints(xp, yp, xn, yn):
     xr = xp + scaledx
     yr = yp + scaledy
     xq = xp - scaledx
-    yq = yp + scaledy
+    yq = yp - scaledy
     return (xr, yr, xq, yq)
 
 ############################################################################################################################################################################

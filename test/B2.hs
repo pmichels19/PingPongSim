@@ -23,7 +23,7 @@ import qualified PingPong.Player.SoloboloPlayer as SoloboloPlayer
 
 main :: IO ()
 main = do
-  prepare   SoloboloPlayer.player
+  -- prepare   SoloboloPlayer.player
   testPlans SoloboloPlayer.plan
   terminate SoloboloPlayer.player
 
