@@ -19,12 +19,13 @@ import System.Random
 -- TESTING COLLISION FUNCTION OF SocketPlayer
 
 import qualified PingPong.Player.SocketPlayer as SocketPlayer
+import qualified PingPong.Player.SoloboloPlayer as SoloboloPlayer
 
 main :: IO ()
 main = do
-  prepare   SocketPlayer.player
-  testPlans SocketPlayer.plan
-  terminate SocketPlayer.player
+  prepare   SoloboloPlayer.player
+  testPlans SoloboloPlayer.plan
+  terminate SoloboloPlayer.player
 
 
 -- TEST CASES

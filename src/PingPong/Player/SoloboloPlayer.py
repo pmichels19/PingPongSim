@@ -232,10 +232,9 @@ def parse_plan_input(data):
 # The plan function
 def plan(foot, arm, xp, yp, xn, yn, xv, yv):
     # get the angles of all joints and lenghts of all links
-    arm_config = arm.split(" ")
     link_lenghts = []
     joint_angles = []
-    for i in range( len(arm_config) ):
+    for i in range( len(arm) ):
         if arm[i] == "joint":
             i = i + 1
             joint_angles.append( float( arm[i] ) )
@@ -245,9 +244,10 @@ def plan(foot, arm, xp, yp, xn, yn, xv, yv):
     # get line segment end points using normal vector and middle point
     xr, yr, xq, yq = getBatEndpoints(xp, yp, xn, yn)
     # use endpoints as base and end for bat
-    target_angles1 = getTargetAngles(foot, link_lenghts, joint_angles, xr, yr, xq, yq, 200)
-    target_angles2 = getTargetAngles(foot, link_lenghts, joint_angles, xq, yq, xr, yr, 200)
+    target_angles1 = getTargetAngles(foot, link_lenghts, joint_angles, xr, yr, xq, yq, 100)
+    target_angles2 = getTargetAngles(foot, link_lenghts, joint_angles, xq, yq, xr, yr, 100)
     # TODO - calculate which, if any, of the two angles is easier/faster to obtain and then use that one.
+    print(f"{target_angles1}\n\n")
     return "impossible"
 
 # Coordinate descent, will try to put base of last link on r and end of last link on q => assumes |rq| = |last link|
@@ -260,35 +260,54 @@ def getTargetAngles(foot, lengths, angles, xr, yr, xq, yq, limit):
         root = root - 1
         if root == -1:
             root += len(joint_angles)
+        
         # get root coordinates of current link
         rootx, rooty = getSegRoot(foot, link_lengths, joint_angles, root)
         # get coordinates of end effector
         endx, endy = getEndEffector(foot, link_lengths, joint_angles)
         # check if end effector is close enough to desired location
         if distance(endx, endy, xr, yr) < 1e-8:
-            # TODO adjust the last angle, so the bat goes from r to q and not from r to somewhere random
-            return joint_angles
-        
+            break
+
+        turnAngle = getCorrectionAngle(xr, yr, endx, endy, rootx, rooty)
+        if np.isnan(turnAngle):
+            continue
+
+        joint_angles[root] += turnAngle
+    
+    # perform correction of bat end to q
+    result_angles = joint_angles.copy()
+    result_angles.append(angles[-1])
+    # get root coordinates of current link
+    rootx, rooty = getSegRoot(foot, lengths, result_angles, root)
+    # get coordinates of end effector
+    endx, endy = getEndEffector(foot, lengths, result_angles)
+    lastCorrection = getCorrectionAngle(xq, yq, endx, endy, rootx, rooty)
+    if np.isnan(lastCorrection):
+        return result_angles
+    
+    result_angles[-1] += lastCorrection
+    return result_angles
+
+# get the angle needed to align (end - root), the current vector, with (xr - root), the target vector
+def getCorrectionAngle(targetx, targety, endx, endy, rootx, rooty):
         # normalized vector from current root to current end effector
         rootEndx, rootEndy = normalize(endx - rootx, endy - rooty)
         # normalized vector from current root to desired end location
-        rootDesx, rootDesy = normalize(xr - rootx, yr - rooty)
+        rootDesx, rootDesy = normalize(targetx - rootx, targety - rooty)
         # calculate dot product of rootEnd and rootDes to get cos(angle) between the two vectors
         cosAngle = rootEndx * rootDesx + rootEndy * rootDesy
         if abs(1 - cosAngle) < 1e-8:
-            continue
+            return float("nan")
         # check z value of cross product of rootDes x rootEnd to get direction of rotation
         crossz = rootDesx * rootEndy - rootDesy * rootEndx
         # get angle from cosAngle
         turnAngle = math.acos(cosAngle)
         # rotate the current joint
         if crossz > 0:
-            joint_angles[root] -= turnAngle
-        elif crossz < 0:
-            joint_angles[root] += turnAngle
-            
-    # TODO adjust the last angle, so the bat goes from r to q and not from r to somewhere random
-    return joint_angles
+            turnAngle = turnAngle * -1
+        return turnAngle
+
 
 # gives the normalized vector described by x and y
 def normalize(x, y):
