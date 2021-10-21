@@ -60,7 +60,11 @@ def action(current_time, last_hit_time, last_hit_object, ball_location, ball_vel
 # Handle a "collision" message
 def handle_collision(message):
     t1, xp1, yp1, xq1, yq1, xr1, yr1, t2, xp2, yp2, xq2, yq2, xr2, yr2 = parse_collision_input (message)
-    return collision (t1, xp1, yp1, xq1, yq1, xr1, yr1, t2, xp2, yp2, xq2, yq2, xr2, yr2)
+    # error handling to be sure
+    try:
+        return collision (t1, xp1, yp1, xq1, yq1, xr1, yr1, t2, xp2, yp2, xq2, yq2, xr2, yr2)
+    except:
+        return "no collision"
 
 # Takes a formatted string and breaks it into seperate variables
 def parse_collision_input(data):
@@ -211,7 +215,11 @@ def outRange(t):
 # Handle a "plan" message
 def handle_plan(message):
     foot, arm, xp, yp, xn, yn, xv, yv = parse_plan_input (message)
-    return plan (foot, arm, xp, yp, xn, yn, xv, yv)
+    # some error handling just to be sure
+    try:
+        return plan (foot, arm, xp, yp, xn, yn, xv, yv)
+    except:
+        return "impossible"
 
 # Takes a formatted string and breaks it into seperate variables
 def parse_plan_input(data):
@@ -243,11 +251,40 @@ def plan(foot, arm, xp, yp, xn, yn, xv, yv):
     xr, yr, xq, yq = getBatEndpoints(xp, yp, xn, yn)
     print(f"bat end points: r ({xr}, {yr}) and q ({xq}, {yq})")
     # use endpoints as target base and end for bat in both directions to be sure
-    target_angles1 = getTargetAngles(foot, arm_config, xr, yr, xq, yq, 100)
-    target_angles2 = getTargetAngles(foot, arm_config, xq, yq, xr, yr, 100)
-    # TODO - calculate which, if any, of the two angles is easier/faster to obtain and then use that one.
-    print(f"angles1: {target_angles1}\t\tangles2: {target_angles2}\n\n")
-    return "impossible"
+    target_angles = getTargetAngles(foot, arm_config, xr, yr, xq, yq, 400)
+    rotateToTarget(arm_config, target_angles)
+    # check if the angles approximate the desired segment well enough
+    if not isClose(foot, arm_config, xr, yr, xq, yq):
+        target_angles = getTargetAngles(foot, arm_config, xq, yq, xr, yr, 400)
+        rotateToTarget(arm_config, target_angles)
+        # if both are not close enough it is impossibleto approximate
+        if not isClose(foot, arm_config, xq, yq, xr, yr):
+            return "impossible"
+    
+    result_angles = parseAngles(target_angles)
+    return f"{result_angles}"
+
+def parseAngles(angles):
+    result = "angles"
+    for angle in angles:
+        result += f" {angle}"
+    return result
+
+def rotateToTarget(arm, angles):
+    for i in range(len(angles)):
+            jointCount = 0
+            for tup in arm:
+                if tup[0] != "joint":
+                    continue
+                if jointCount != i:
+                    jointCount += 1
+                    continue
+                tup[1] = angles[i]
+
+def isClose(foot, arm, xr, yr, xq, yq):
+    basex, basey = getEndEffector(foot, arm[:-2])
+    endx, endy = getEndEffector(foot, arm)
+    return abs(xr - basex) < 1e-4 and abs(yr - basey) < 1e-4 and abs(xq - endx) < 1e-4 and abs(yq - endy) < 1e-4
 
 # Coordinate descent, will try to put base of last link on r and end of last link on q => assumes |rq| = |last link|
 def getTargetAngles(foot, arm, xr, yr, xq, yq, limit):
