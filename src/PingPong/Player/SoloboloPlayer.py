@@ -264,24 +264,25 @@ def plan(foot, arm, xp, yp, xn, yn, xv, yv):
     # parse the angles and speeds to right format for returning
     result_angles = parseAngles(target_angles)
     result_speeds = parseSpeeds(speeds)
-    return f"{result_angles}\n{result_speeds} "
+    return f"{result_angles}\n{result_speeds}"
 
 def getSpeeds(arm, xv, yv):
     jacobian = getJacobian(arm)
-    # we only need the x and y linear velocities, so extract those from the jacobian into a new matrix
-    toInvert = np.array([ jacobian[0], jacobian[1] ])
+    jacobian = np.array([jacobian[0], jacobian[1]])
+    jointCount = 0
+    for tup in arm:
+        if tup[0] == "joint":
+            jointCount += 1
     # if the determinant is effectively 0, use the psuedo-inverse
-    inverted = np.array([ [0, 0], [0, 0] ])
+    inverted = np.zeros((jointCount, jointCount))
     try:
-        # if we can invert normally, go for it
-        if (abs( np.linalg.det(toInvert) ) > 1e-8) and (toInvert.shape[0] == toInvert.shape[1]):
-            inverted = np.linalg.inv(toInvert)
-        # take the pseudo-inverse otherwise
-        else:
-            inverted = np.linalg.pinv( toInvert )
+        inverted = np.linalg.inv(jacobian)
     except:
-        # if either of the inverse methods fails, just return 0 speeds and cry :(
-        return [0, 0]
+        try:
+            inverted = np.linalg.pinv( jacobian )
+        except:
+            # if both of the inverse methods fails, just return 0 speeds and cry :(
+            return np.zeros(jointCount).tolist()
     speeds = np.matmul(inverted, np.array([xv, yv]))
     return speeds.tolist()
 
@@ -337,7 +338,7 @@ def rotateToTarget(arm, angles):
 def isClose(foot, arm, xr, yr, xq, yq):
     basex, basey = getEndEffector(foot, arm[:-2])
     endx, endy = getEndEffector(foot, arm)
-    return (distance(xr, yr, basex, basey) < 1e-4) and (distance(xq, yq, endx, endy) < 1e-4)
+    return (distance(xr, yr, basex, basey) < 1e-3) and (distance(xq, yq, endx, endy) < 1e-3)
 
 # Coordinate descent, will try to put base of last link on r and end of last link on q => assumes |rq| = |last link|
 def getTargetAngles(foot, arm, xr, yr, xq, yq, limit):
