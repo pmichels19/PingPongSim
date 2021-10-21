@@ -261,7 +261,14 @@ def plan(foot, arm, xp, yp, xn, yn, xv, yv):
             return "impossible"
     
     result_angles = parseAngles(target_angles)
-    return f"{result_angles}"
+    result_speeds = parseSpeeds(target_angles)
+    return f"{result_angles} {result_speeds} "
+
+def parseSpeeds(angles):
+    result = "speeds"
+    for _ in angles:
+        result += f" 0"
+    return result
 
 def parseAngles(angles):
     result = "angles"
