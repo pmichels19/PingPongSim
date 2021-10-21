@@ -273,10 +273,12 @@ def getSpeeds(arm, xv, yv):
     # if the determinant is effectively 0, use the psuedo-inverse
     inverted = np.array([ [0, 0], [0, 0] ])
     try:
-        if abs( np.linalg.det(toInvert) ) < 1e-8:
-            inverted = np.linalg.pinv(toInvert)
+        # if we can invert normally, go for it
+        if (abs( np.linalg.det(toInvert) ) > 1e-8) and (toInvert.shape[0] == toInvert.shape[1]):
+            inverted = np.linalg.inv(toInvert)
+        # take the pseudo-inverse otherwise
         else:
-            inverted = np.linalg.inv( toInvert )
+            inverted = np.linalg.pinv( toInvert )
     except:
         # if either of the inverse methods fails, just return 0 speeds and cry :(
         return [0, 0]
@@ -335,7 +337,7 @@ def rotateToTarget(arm, angles):
 def isClose(foot, arm, xr, yr, xq, yq):
     basex, basey = getEndEffector(foot, arm[:-2])
     endx, endy = getEndEffector(foot, arm)
-    return abs(xr - basex) < 1e-4 and abs(yr - basey) < 1e-4 and abs(xq - endx) < 1e-4 and abs(yq - endy) < 1e-4
+    return (distance(xr, yr, basex, basey) < 1e-4) and (distance(xq, yq, endx, endy) < 1e-4)
 
 # Coordinate descent, will try to put base of last link on r and end of last link on q => assumes |rq| = |last link|
 def getTargetAngles(foot, arm, xr, yr, xq, yq, limit):
