@@ -249,7 +249,6 @@ def plan(foot, arm, xp, yp, xn, yn, xv, yv):
         i = i + 2
     # get end points of target line segment using normal vector and middle point
     xr, yr, xq, yq = getBatEndpoints(xp, yp, xn, yn)
-    print(f"bat end points: r ({xr}, {yr}) and q ({xq}, {yq})")
     # use endpoints as target base and end for bat in both directions to be sure
     target_angles = getTargetAngles(foot, arm_config, xr, yr, xq, yq, 400)
     rotateToTarget(arm_config, target_angles)
