@@ -259,15 +259,60 @@ def plan(foot, arm, xp, yp, xn, yn, xv, yv):
         # if both are not close enough it is impossibleto approximate
         if not isClose(foot, arm_config, xq, yq, xr, yr):
             return "impossible"
-    
+    # get the speeds needed to achieve the velocity provided
+    speeds = getSpeeds(arm_config, xv, yv)
+    # parse the angles and speeds to right format for returning
     result_angles = parseAngles(target_angles)
-    result_speeds = parseSpeeds(target_angles)
-    return f"{result_angles} {result_speeds} "
+    result_speeds = parseSpeeds(speeds)
+    return f"{result_angles}\n{result_speeds} "
 
-def parseSpeeds(angles):
+def getSpeeds(arm, xv, yv):
+    jacobian = getJacobian(arm)
+    # we only need the x and y linear velocities, so extract those from the jacobian into a new matrix
+    toInvert = np.array([ jacobian[0], jacobian[1] ])
+    # if the determinant is effectively 0, use the psuedo-inverse
+    inverted = np.array([ [0, 0], [0, 0] ])
+    try:
+        if abs( np.linalg.det(toInvert) ) < 1e-8:
+            inverted = np.linalg.pinv(toInvert)
+        else:
+            inverted = np.linalg.inv( toInvert )
+    except:
+        # if either of the inverse methods fails, just return 0 speeds and cry :(
+        return [0, 0]
+    speeds = np.matmul(inverted, np.array([xv, yv]))
+    return speeds.tolist()
+
+def getJacobian(arm):
+    # gather the columns of the jacobian matrix in a list
+    columns = []
+    jointNr = 0
+    # get the upper three values of the last column of T(0, end)
+    toEndMatrix = getDHMatrixToJoint(0, arm, 0)
+    toEndEffector = np.array([toEndMatrix[0, -1], toEndMatrix[1, -1], 0])
+    for tup in arm:
+        if tup[0] == "link":
+            continue
+        jointNr += 1
+        rotation = getDHRotationMatrix(arm, jointNr)
+        # potential FIXME: this might now work with a foot of 0
+        transformation = getDHMatrixToJoint(0, arm, jointNr)
+        toCurJoint = np.array([transformation[0, -1], transformation[1, -1], 0])
+        # get angular velocities for this joint
+        angular = np.matmul( rotation, np.array([0, 0, 1]) ) # angular: [w1, w2, w3]
+        # use angular velocities to make a cross product with vector to end effector
+        diff = np.subtract(toEndEffector, toCurJoint)
+        linear = np.cross( np.array([0, 0, 1]), diff )
+        # append to columns
+        columns.append( np.append( linear, angular ) )
+    # make the matrix by transposing the columns
+    jacobian = np.array(columns).transpose()
+    return jacobian
+
+def parseSpeeds(speeds):
     result = "speeds"
-    for _ in angles:
-        result += f" 0"
+    for speed in speeds:
+        result += f" {speed}"
     return result
 
 def parseAngles(angles):
@@ -382,8 +427,8 @@ def normalize(x, y):
         return (0, 0)
     return ((x / size), (y / size))
 
-# goes through the arm, until the joint_base joint
-def getSegRoot(foot, arm, joint_base):
+# get the transformation matrix giving the x and y coordinate of the (joint)'s joint
+def getDHMatrixToJoint(foot, arm, joint):
     transformation = np.array([[1, 0, foot], [0, 1, 0], [0, 0, 1]])
     joint_count = 0
     for tup in arm:
@@ -391,18 +436,38 @@ def getSegRoot(foot, arm, joint_base):
         if tup[0] == "joint":
             joint_count += 1
             # if this joint brings us to the joint_base joint, we have found the desired root
-            if joint_count == joint_base:
+            if joint_count == joint:
                 break
             phi = tup[1]
             transformation = np.matmul(transformation, np.array([[math.cos( phi ), -math.sin( phi ), 0], [math.sin( phi ), math.cos( phi ), 0], [0, 0, 1]]))
         elif tup[0] == "link":
             transformation = np.matmul(transformation, np.array([[1, 0, 0], [0, 1, tup[1]], [0, 0, 1]]))
+    return transformation
+
+# gets the rotation matrix up to joint - 1. So if joint == 1, then you get R(0, 0), joint == 2 gives R(0, 1), joint ==3 gives R(0, 2) etc.
+def getDHRotationMatrix(arm, joint):
+    rotation = np.identity(3)
+    joint_count = 0
+    for tup in arm:
+        if tup[0] == "link":
+            continue
+        joint_count += 1
+        # if this joint brings us to the joint_base joint, we have found the desired root
+        if joint_count == joint:
+            break
+        phi = tup[1]
+        rotation = np.matmul(rotation, np.array([[math.cos( phi ), -math.sin( phi ), 0], [math.sin( phi ), math.cos( phi ), 0], [0, 0, 1]]))
+    return rotation
+
+# goes through the arm, until the joint_base joint
+def getSegRoot(foot, arm, joint_base):
+    transformation = getDHMatrixToJoint(foot, arm, joint_base)
     root = np.matmul(transformation, np.array([[0], [0], [1]]))
     return (root[0, 0], root[1, 0])
 
 # returns the end effector, i.e. the root of the link forming the bat
 def getEndEffector(foot, arm):
-    return getSegRoot(foot, arm, len(arm))
+    return getSegRoot(foot, arm, 0)
 
 def getBatEndpoints(xp, yp, xn, yn):
     xl = -yn
