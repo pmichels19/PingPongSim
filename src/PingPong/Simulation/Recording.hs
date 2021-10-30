@@ -34,6 +34,8 @@ playWithCollision :: CollisionChecker -> Player -> Player -> IO ()
 playWithCollision checker ip1 ip2 = do
   hSetBuffering stdout NoBuffering
   prepareAll
+--  terminate ip1 -- in case still running from previous run
+--  terminate ip2 -- in case still running from previous run
   prepare ip1
   prepare ip2
   initialState <- initBeforeGame $ defState {p1 = ip1, p2 = ip2}

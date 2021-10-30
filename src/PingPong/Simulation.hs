@@ -316,6 +316,23 @@ applyMotion :: Float -> Float -> Float -> Float
 applyMotion f x a = a + f * x
 
 
+-- Given a set of angular speeds, compute the resulting speeds of all joints.
+motionVelocity :: [Float] -> Arm -> [Vector 2 Float]
+motionVelocity fs arm = computeVelocity $ zip (evaluateU arm) ([0] ++ fs ++ [0])
+
+computeVelocity :: [(Point 2 Float, Float)] -> [Vector 2 Float]
+computeVelocity [] = []
+computeVelocity ((p, a) : pas) = 
+  let pvel = (zero :) $  map (\q -> (a *^) $ rotate90 $ q .-. p) $ map fst pas
+      rvel = zero : computeVelocity pas
+  in zipWith (^+^) pvel rvel
+
+zero :: Vector 2 Float
+zero = toVec origin
+
+rotate90 :: Vector 2 Float -> Vector 2 Float
+rotate90 (Vector2 x y) = Vector2 (-y) x
+
 -- ball step
 straightBallStep :: Float -> BallState -> BallState
 straightBallStep f st = st { loc = loc st .+^ f *^ dir st }

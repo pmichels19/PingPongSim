@@ -8,6 +8,9 @@ import Data.Colour
 import Data.Ext
 
 
+import Data.Default
+import Control.Exception
+
 
 
 defaultPlayer :: Player
@@ -22,6 +25,9 @@ defaultPlayer = Player
   , stretch = defaultStretch
   , dance   = defaultDance
   } 
+
+instance Default Player where
+  def = defaultPlayer
 
 noPlayer :: Player
 noPlayer = defaultPlayer
@@ -133,3 +139,14 @@ readPlanOutput :: String -> Maybe ([Float], [Float]) -- output position and angu
 readPlanOutput "impossible" = Nothing
 readPlanOutput str = case lines str of [l1, l2] -> Just (map read $ tail $ words l1, map read $ tail $ words l2)
                                        _        -> error $ "readPlanOutput: cannot parse message \"" ++ str ++ "\""
+
+
+
+-- socket stuff -> move to different module
+
+
+ignoreIOExeption :: Default a => IO a -> IO a
+ignoreIOExeption = handle ignoreExeption
+
+ignoreExeption :: Default a => IOException -> IO a
+ignoreExeption _ = return def

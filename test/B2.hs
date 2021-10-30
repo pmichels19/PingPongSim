@@ -18,6 +18,7 @@ import System.Random
 
 -- TESTING COLLISION FUNCTION OF SocketPlayer
 
+import qualified PingPong.Player.NativePlayer as NativePlayer
 import qualified PingPong.Player.SocketPlayer as SocketPlayer
 import qualified PingPong.Player.SoloboloPlayer as SoloboloPlayer
 
@@ -71,7 +72,7 @@ testcases = [ ( ( (0  , [ Link  black 0.3
                         ])
                 , (Point2 0.65 0.7, Vector2 0 1, Vector2 0 0)
                 )            
-              , Just ( [3/2 * pi + asin 0.6, pi, asin (-0.6)], [0, 0, 0] )
+              , Just ( [1/2 * pi + asin 0.6, pi, asin (-0.6)], [0, 0, 0] )
               )            
             , ( ( (0  , [ Link  black 0.1
                         , Joint black 0
@@ -94,6 +95,63 @@ testcases = [ ( ( (0  , [ Link  black 0.3
               , Just ( [3/2 * pi, 1/2 * pi], [1, 1] )
               )          
             ]
+
+
+harmonica :: TestCase
+harmonica = ctc 0 1 [ pi * 1/2,  pi, 0.1
+                    , pi * 1/2, -pi, 0.1
+                    , pi * 3/2, -pi, 0.1
+                    , pi * 3/2,  pi, 0.1
+                    ]
+
+ctc :: Float -> Float -> [Float] -> TestCase
+ctc foot l1 xs = 
+  let angles =          map fst $ filter (\(x, i) -> i `mod` 3 == 0) $ zip xs [0..]
+      speeds =          map fst $ filter (\(x, i) -> i `mod` 3 == 1) $ zip xs [0..]
+      links  = (l1 :) $ map fst $ filter (\(x, i) -> i `mod` 3 == 2) $ zip xs [0..]
+  in createTestCase foot (buildArm links angles) speeds
+
+buildArm :: [Float] -> [Float] -> Arm
+buildArm [l] [] = [Link black l]
+buildArm (l : ls) (j : js) = Link black l : Joint black j : buildArm ls js
+
+-- use forward kinematics to create a test case
+createTestCase :: Float -> Arm -> [Float] -> TestCase
+createTestCase foot arm speeds =
+  let angles = getJointAngles arm
+      arm' = setJointAngles (repeat 0) arm
+      ps   = evaluate arm
+      p    = last ps
+      q    = last $ init ps
+      bat  = ClosedLineSegment (p :+ ()) (q :+ ())
+      m    = origin .+^ (chop $ toVec $ average [p, q])
+      n    = chop $ normalVectorOfSegment bat
+      vs   = motionVelocity speeds arm
+      v    = chop $ toVec $ average [origin .+^ last vs, origin .+^ (last . init) vs]
+  in (((foot, arm'), (m, n, v)), Just (angles, speeds))
+
+normalVectorOfSegment :: Floating r => LineSegment 2 () r -> Vector 2 r
+normalVectorOfSegment s = transformBy (rotation $ pi / 2) $ (s ^. end ^. core) .-. (s ^. start ^. core)
+
+getJointAngles :: Arm -> [Float]
+getJointAngles arm = map (\(Joint _ x) -> x) $ filter isJoint arm
+
+setJointAngles :: [Float] -> Arm -> Arm
+setJointAngles m (l@(Link _ _) : arm) = l : setJointAngles m arm
+setJointAngles (x : xs) (Joint c a : arm) = Joint c x : setJointAngles xs arm
+setJointAngles _ arm = arm
+
+
+average :: (Functor t, Foldable t, Arity d, Fractional r) => t (Point d r) -> Point d r
+average ps = origin .+^ foldr1 (^+^) (fmap toVec ps) ^/ realToFrac (length ps)
+
+chop :: RealFrac r => Vector 2 r -> Vector 2 r
+chop v = toVec $ snap 6 $ origin .+^ v
+
+snap :: RealFrac r => Int -> Point 2 r -> Point 2 r
+snap k (Point2 x y) = Point2 (snapC k x) (snapC k y)
+snapC :: RealFrac r => Int -> r -> r
+snapC k x = fromInteger (round ((10 ^ k) * x)) / (10 ^ k)
 
 -- TESTING
 

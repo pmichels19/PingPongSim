@@ -16,6 +16,7 @@ import Data.Ext
 import System.Process
 import Control.Concurrent
 import Control.Lens
+import Control.Exception
 
 -- The port you will use to communicate.
 -- Change this to something unique! Otherwise, if your opponent also uses sockets
@@ -58,7 +59,7 @@ soloboloPrepare = do
   return ()
 
 soloboloTerminate :: IO ()
-soloboloTerminate = connect "127.0.0.1" (show port) $ \(connectSocket, connectRemoteAddr) -> do
+soloboloTerminate = ignoreIOExeption $ connect "127.0.0.1" (show port) $ \(connectSocket, connectRemoteAddr) -> do
   ByteString.send connectSocket (BSUTF8.fromString "terminate")
   return ()
   
@@ -84,7 +85,8 @@ plan :: (Float, Arm) -- location and description of the arm
      -> (Point 2 Float, Vector 2 Float, Vector 2 Float) -- desired point of collision, orientation of bat, and velocity of the bat
      -> IO (Maybe ([Float], [Float])) -- output position and angular velocity of the arm
 
-plan xarm goal = connect "127.0.0.1" (show port) $ \(connectSocket, connectRemoteAddr) -> do
+plan xarm goal = -- handle (const Nothing) $ 
+                 connect "127.0.0.1" (show port) $ \(connectSocket, connectRemoteAddr) -> do
   let message = "plan\n" ++ writePlanInput xarm goal ++ "%"
   ByteString.send connectSocket (BSUTF8.fromString message)
   answer <- ByteString.recv connectSocket 4096

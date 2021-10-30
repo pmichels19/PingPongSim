@@ -8,7 +8,7 @@ import math
 # The port you will use to communicate.
 # Change this to something unique! Otherwise, if your opponent also uses sockets
 # and uses the same port, weird things will happen.
-port = 1234
+port = 6174
 
 ### ACTION
 
