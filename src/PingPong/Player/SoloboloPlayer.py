@@ -1,5 +1,4 @@
 
-import sys
 import socket
 import string
 import math
@@ -10,13 +9,33 @@ import numpy as np
 # Change this to something unique! Otherwise, if your opponent also uses sockets
 # and uses the same port, weird things will happen.
 port = 1251
+# amount of CCD iterations to perform during planning
+CCD_ITERATIONS = 100
+# the gravity acceleration
+GRAVITY = 2
+# The FPS of the game
+FPS = 50
+# the coordinates of the edges of the table
+TABLE_Q = (-1, 0.5)
+TABLE_R = (1, 0.5)
+# x of foot
+FOOT = 1.7
 
-### ACTION
+############################################################################################################################################################################
+############################################################################################################################################################################
+################################################################################  ACTION  ##################################################################################
+############################################################################################################################################################################
+############################################################################################################################################################################
 
 # Handle a "action" message
 def handle_action(message):
     t, h, o, b, v, a = parse_action_input (message)
     motion = action(t, h, o, b, v, a)
+    # try:
+    #     motion = action(t, h, o, b, v, a)
+    # except:
+    #     jointCount = a.count('joint')
+    #     motion = [0] * jointCount
     return format_action_output(motion)
 
 # Takes a formatted string and breaks it into seperate variables
@@ -42,14 +61,68 @@ def format_action_output(motion):
 
 # The function where the magic happens
 def action(current_time, last_hit_time, last_hit_object, ball_location, ball_velocity, arm_configuration):
-    # get the angles of all joints
-    arm = arm_configuration.split(" ")
-    joint_angles = []
-    for i in range( len(arm) ):
-        if arm[i] == "joint":
-            i = i + 1
-            joint_angles.append( float( arm[i] ) )
-    return [math.sin(current_time), math.cos(current_time), math.sin(current_time), joint_angles[-1] - (joint_angles[0] + joint_angles[1] + joint_angles[2])]
+    joint_count = arm_configuration.count("joint")
+    arm = makeTupArm( arm_configuration.split(" ") )
+
+    current_angles = []
+    for tup in arm:
+        if tup[0] == "joint":
+            current_angles.append(tup[1])
+
+    motion = [0] * joint_count
+    if last_hit_object == "bat opponent":
+        motion = hitByOpponentLast(current_time, ball_location, ball_velocity, arm, current_angles, joint_count)
+    elif last_hit_object == "table self":
+        motion = hitTableSelfLast(ball_location, ball_velocity, arm, current_angles, joint_count)
+
+    return motion
+
+def hitByOpponentLast(current_time, ball_location, ball_velocity, arm, current_angles, joint_count):
+    xb_start, yb_start = ball_location[0], ball_velocity[1]
+    xb_end, yb_end = getBallEndApproximation(ball_location, ball_velocity)
+
+    bounce = collision(current_time, xb_start, yb_start, TABLE_Q[0], TABLE_Q[1], TABLE_R[0], TABLE_R[1], current_time + (1 / FPS),
+                             xb_end, yb_end, TABLE_Q[0], TABLE_Q[1], TABLE_R[0], TABLE_R[1])
+    if bounce != "no collision":
+        _, xpt, ypt, vx, vy = bounce
+        xb_end = xpt + vx
+        yb_end = ypt + vy
+
+    yb_end = max(0.55, yb_end)
+    plans = getAngles(FOOT, arm, xb_end, yb_end, 1, 0)
+    if plans == "impossible":
+        return [0] * joint_count
+    motion = plansToMotion(plans, current_angles)
+
+    return motion
+
+def hitTableSelfLast(ball_location, ball_velocity, arm, current_angles, joint_count):
+    xb_end, yb_end = getBallEndApproximation(ball_location, ball_velocity)
+
+    plans = getAngles(FOOT, arm, xb_end, yb_end, -1, 1)
+    print(plans)
+    if plans == "impossible":
+        return [0] * joint_count
+    motion = plansToMotion(plans, current_angles)
+
+    return motion
+
+
+def getBallEndApproximation(ball_location, ball_velocity):
+    # get the approximate end location of the ball after one time unit
+    xb_cur, yb_cur = ball_location[0], ball_location[1]
+    xv, yv = ball_velocity[0], ball_velocity[1]
+    xb_end, yb_end = xb_cur + xv, yb_cur + yv - (GRAVITY / FPS)
+    return (xb_end, yb_end)
+
+# transforms the planned motion to joint speeds
+# possible FIXME: this currently calculates joint distances, we know max joint speed is 2 rad/s => transformation needed
+def plansToMotion(plans, current_angles):
+    motion = []
+    for i in range(len(plans)):
+        motion.append( plans[i] - current_angles[i] )
+    # joint distances now contains amount of radians to rotate by in this 1/50 seconds
+    return motion
 
 ############################################################################################################################################################################
 ############################################################################################################################################################################
@@ -62,7 +135,7 @@ def handle_collision(message):
     t1, xp1, yp1, xq1, yq1, xr1, yr1, t2, xp2, yp2, xq2, yq2, xr2, yr2 = parse_collision_input (message)
     # error handling to be sure
     try:
-        return collision (t1, xp1, yp1, xq1, yq1, xr1, yr1, t2, xp2, yp2, xq2, yq2, xr2, yr2)
+        return parse_collision_output( collision(t1, xp1, yp1, xq1, yq1, xr1, yr1, t2, xp2, yp2, xq2, yq2, xr2, yr2) )
     except:
         return "no collision"
 
@@ -87,6 +160,9 @@ def parse_collision_input(data):
     yr2 = float(line2_words[9])
     return t1, xp1, yp1, xq1, yq1, xr1, yr1, t2, xp2, yp2, xq2, yq2, xr2, yr2
 
+def parse_collision_output(t, xpt, ypt, vx, vy):
+    return f"time {t} point {xpt} {ypt} vector {vx} {vy}"
+
 # The collision function
 def collision(t1, xp1, yp1, xq1, yq1, xr1, yr1, t2, xp2, yp2, xq2, yq2, xr2, yr2, reverse = False):
     # get time of impact
@@ -110,7 +186,7 @@ def collision(t1, xp1, yp1, xq1, yq1, xr1, yr1, t2, xp2, yp2, xq2, yq2, xr2, yr2
     # calculate velocity of ball after collision
     vx, vy = getVelocity(mu, xp2, yp2, xq2, yq2, xr2, yr2, xpt, ypt, xqt, yqt, xrt, yrt, t2 - t, t2 - t1)
 
-    return f"time {t} point {xpt} {ypt} vector {vx} {vy}"
+    return t, xpt, ypt, vx, vy
 
 def getVelocity(mu, xp2, yp2, xq2, yq2, xr2, yr2, xpt, ypt, xqt, yqt, xrt, yrt, tremaining, ttotal):
     # get velocity of ball after collision
@@ -217,7 +293,10 @@ def handle_plan(message):
     foot, arm, xp, yp, xn, yn, xv, yv = parse_plan_input (message)
     # some error handling just to be sure
     try:
-        return plan (foot, arm, xp, yp, xn, yn, xv, yv)
+        plans = plan(foot, arm, xp, yp, xn, yn, xv, yv)
+        if plans == "impossible":
+            return plans
+        return parse_plan_output(plans[0], plans[1])
     except:
         return "impossible"
 
@@ -237,34 +316,58 @@ def parse_plan_input(data):
     yv   = float(line2_words[8])
     return foot, arm, xp, yp, xn, yn, xv, yv
 
+def parse_plan_output(angles, speeds):
+    return f"{parseAngles(angles)}\n{parseSpeeds(speeds)}"
+
+def parseSpeeds(speeds):
+    result = "speeds"
+    for speed in speeds:
+        result += f" {speed}"
+    return result
+
+def parseAngles(angles):
+    result = "angles"
+    for angle in angles:
+        result += f" {angle}"
+    return result
+
 # The plan function
 def plan(foot, arm, xp, yp, xn, yn, xv, yv):
     # get rid of the word 'arm' in the first entry of the arm
-    del arm[0]
+    if arm[0] != "link" or arm[0] != "joint":
+        del arm[0]
+    
+    arm_config = makeTupArm(arm)
+    angles = getAngles(foot, arm, xp, yp, xn, yn)
+    if angles == "impossible":
+        return angles
+    # get the speeds needed to achieve the velocity provided
+    speeds = getSpeeds(arm_config, xv, yv)
+    # parse the angles and speeds to right format for returning
+    return (angles, speeds)
+
+def makeTupArm(arm):
     # extract current arm configuration to a more sensible list of lists: [joint, rotation] or [link, length]
     i = 0
     arm_config = []
     while i in range(len(arm)):
         arm_config.append( [arm[i], float(arm[i + 1])] )
         i = i + 2
+    return arm_config
+
+def getAngles(foot, arm, xp, yp, xn, yn):
     # get end points of target line segment using normal vector and middle point
     xr, yr, xq, yq = getBatEndpoints(xp, yp, xn, yn)
-    # use endpoints as target base and end for bat in both directions to be sure
-    target_angles = getTargetAngles(foot, arm_config, xr, yr, xq, yq, 400)
-    rotateToTarget(arm_config, target_angles)
+    target_angles = getTargetAngles(foot, arm, xr, yr, xq, yq, CCD_ITERATIONS)
+    rotateToTarget(arm, target_angles)
     # check if the angles approximate the desired segment well enough
-    if not isClose(foot, arm_config, xr, yr, xq, yq):
-        target_angles = getTargetAngles(foot, arm_config, xq, yq, xr, yr, 400)
-        rotateToTarget(arm_config, target_angles)
+    if not isClose(foot, arm, xr, yr, xq, yq):
+        target_angles = getTargetAngles(foot, arm, xq, yq, xr, yr, CCD_ITERATIONS)
+        rotateToTarget(arm, target_angles)
         # if both are not close enough it is impossibleto approximate
-        if not isClose(foot, arm_config, xq, yq, xr, yr):
+        if not isClose(foot, arm, xq, yq, xr, yr):
             return "impossible"
-    # get the speeds needed to achieve the velocity provided
-    speeds = getSpeeds(arm_config, xv, yv)
-    # parse the angles and speeds to right format for returning
-    result_angles = parseAngles(target_angles)
-    result_speeds = parseSpeeds(speeds)
-    return f"{result_angles}\n{result_speeds}"
+    return target_angles
 
 def getSpeeds(arm, xv, yv):
     jacobian = getJacobian(arm)
@@ -311,18 +414,6 @@ def getJacobian(arm):
     # make the matrix by transposing the columns
     jacobian = np.array(columns).transpose()
     return jacobian
-
-def parseSpeeds(speeds):
-    result = "speeds"
-    for speed in speeds:
-        result += f" {speed}"
-    return result
-
-def parseAngles(angles):
-    result = "angles"
-    for angle in angles:
-        result += f" {angle}"
-    return result
 
 def rotateToTarget(arm, angles):
     for i in range(len(angles)):

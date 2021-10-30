@@ -38,23 +38,23 @@ gradient :: Float -> Colour Float
 gradient x = blend x darkviolet crimson
 
 soloboloArm :: Arm
-soloboloArm = [ Link  (gradient 0.1) 0.5
+soloboloArm = [ Link  (gradient 0.1) 0.4
           , Joint (gradient 0.2) (pi / 12)
-          , Link  (gradient 0.3) 0.4
+          , Link  (gradient 0.3) 0.3
           , Joint (gradient 0.4) (pi / 6)
           , Link  (gradient 0.5) 0.3
           , Joint (gradient 0.6) (pi / 4)
           , Link  (gradient 0.7) 0.2
-          , Joint (gradient 0.8) (pi / 2)
+          , Joint (gradient 0.8) 0
           , Link  (gradient 0.9) 0.1
           ]
 
 soloboloFoot :: Float
-soloboloFoot = 1.5
+soloboloFoot = 1.7
 
 soloboloPrepare :: IO ()
 soloboloPrepare = do
-  spawnCommand ("python3 src/PingPong/Player/SoloboloPlayer.py")
+  spawnCommand ("python src/PingPong/Player/SoloboloPlayer.py")
   threadDelay 100000
   return ()
 
