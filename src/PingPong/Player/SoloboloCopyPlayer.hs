@@ -1,4 +1,4 @@
-module PingPong.Player.SoloboloPlayer (player, collision, plan) where
+module PingPong.Player.SoloboloCopyPlayer (player, collision, plan) where
 
 import PingPong.Model
 import PingPong.Player
@@ -26,7 +26,7 @@ port = 1251
 
 player :: Player
 player = defaultPlayer
-  { name      = "Solobolo"
+  { name      = "Solobolo COPY"
   , arm       = soloboloArm
   , foot      = soloboloFoot
   , action    = soloboloAction
