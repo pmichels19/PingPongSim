@@ -14,7 +14,7 @@ import qualified PingPong.Player.DummyPlayer as DummyPlayer
 import qualified PingPong.Player.TestPlayer as TestPlayer
 
 main :: IO ()
-main = play SoloboloPlayer.player NativePlayer.player
+main = play NativePlayer.player SoloboloPlayer.player
 --main = playWithCollision NativePlayer.collision 
 --       SocketPlayer.player NativePlayer.player
 
