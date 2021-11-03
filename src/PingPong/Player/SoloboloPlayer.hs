@@ -38,14 +38,15 @@ gradient :: Float -> Colour Float
 gradient x = blend x darkviolet crimson
 
 soloboloArm :: Arm
-soloboloArm = [ Link  (gradient 0.1) 0.4
-          , Joint (gradient 0.2) (pi / 12)
+soloboloArm = [ 
+            Link  (gradient 0.1) 0.4
+          , Joint (gradient 0.2) (-pi / 12)
           , Link  (gradient 0.3) 0.3
-          , Joint (gradient 0.4) (pi / 6)
+          , Joint (gradient 0.4) (pi / 12)
           , Link  (gradient 0.5) 0.3
-          , Joint (gradient 0.6) (pi / 4)
+          , Joint (gradient 0.6) (pi / 2)
           , Link  (gradient 0.7) 0.2
-          , Joint (gradient 0.8) 0
+          , Joint (gradient 0.8) (-2.5 * pi / 4)
           , Link  (gradient 0.9) 0.1
           ]
 

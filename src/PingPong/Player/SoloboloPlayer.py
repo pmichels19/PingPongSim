@@ -12,14 +12,19 @@ port = 1251
 # amount of CCD iterations to perform during planning
 CCD_ITERATIONS = 100
 # the gravity acceleration
-GRAVITY = 2
+GRAVITY = 2.0
 # The FPS of the game
-FPS = 50
+FPS = 50.0
 # the coordinates of the edges of the table
 TABLE_Q = (-1, 0.5)
 TABLE_R = (1, 0.5)
 # x of foot
 FOOT = 1.7
+# how far in front the arm will try to intercept the ball
+FRONT = 0.6
+
+locations = []
+predictions = []
 
 ############################################################################################################################################################################
 ############################################################################################################################################################################
@@ -59,6 +64,69 @@ def format_action_output(motion):
     formatted_motion = " ".join(string_motion)
     return formatted_motion
 
+def getInterceptCoords(xs, ys, xv, yv, table_hit = False):
+    if not table_hit:
+        tBounce = impactWithTable(ys, yv, TABLE_Q[1])
+        # if the ball doesn't collide with the table, do nothing
+        if tBounce == "nope":
+            return "nope"
+        t = extractValidImpact(xs, xv, tBounce)
+        # if the ball never lands on the table, do nothing
+        if t == "nope":
+            return "nope"
+        yv_bounce = -( yv - (t * GRAVITY / FPS) )
+        ys_bounce = 0.5
+    else:
+        t = 0
+        yv_bounce = yv
+        ys_bounce = ys
+    # otherwise, we calculate the x and velocity at the bounce
+    xt = xApprox(xs, xv, t)
+
+    t_intercept = (FPS * ((FOOT - FRONT) - xs) ) / xv
+    return (xApprox(xt, xv, t_intercept), yApprox(ys_bounce, yv_bounce, t_intercept))
+
+def extractValidImpact(xs, xv, t):
+    if type(t) is tuple:
+        for time in t:
+            xt = xApprox(xs, xv, time)
+            if xt >= TABLE_Q[0] and xt <= TABLE_R[0]:
+                return time
+    else:
+        xt = xApprox(xs, xv, t)
+        if xt >= TABLE_Q[0] and xt <= TABLE_R[0]:
+            return t
+    return "nope"
+
+def impactWithTable(ys, yv, targety):
+    # solve abc formula for y(t) = targety and returns values of t
+    a = ys - targety
+    b = yv / FPS
+    c = - GRAVITY / (2 * FPS * FPS)
+    d = (b * b) - 4 * a * c
+    
+    # if a is neglibibly small then t goes to - c / b
+    if abs(a) < 1e-8:
+        # if b is also 0 we have no solutions
+        if abs(b) < 1e-8:
+            return "nope"
+        t = - c / b
+        return t
+
+    # if d < 0 there are no colissions, so we can return 
+    if d < 0:
+        return -1
+
+    t1 = (-b + math.sqrt(d)) / (2 * a)
+    t2 = (-b - math.sqrt(d)) / (2 * a)
+    return (t1, t2)
+
+def xApprox(xs, xv, t):
+    return xs + ( t * xv / FPS )
+
+def yApprox(ys, yv, t):
+    return ys + ( t * yv / FPS ) - ( (t * t) *  GRAVITY / ( 2 * FPS * FPS ) )
+
 # The function where the magic happens
 def action(current_time, last_hit_time, last_hit_object, ball_location, ball_velocity, arm_configuration):
     joint_count = arm_configuration.count("joint")
@@ -68,52 +136,20 @@ def action(current_time, last_hit_time, last_hit_object, ball_location, ball_vel
     for tup in arm:
         if tup[0] == "joint":
             current_angles.append(tup[1])
+    
+    if last_hit_object == "table self":
+        intercept = getInterceptCoords(ball_location[0], ball_location[1], ball_velocity[0], ball_velocity[1], True)
+    elif last_hit_object == "bat opponent":
+        intercept = getInterceptCoords(ball_location[0], ball_location[1], ball_velocity[0], ball_velocity[1], False)
+    else:
+        intercept = "nope"
 
     motion = [0] * joint_count
-    if last_hit_object == "bat opponent":
-        motion = hitByOpponentLast(current_time, ball_location, ball_velocity, arm, current_angles, joint_count)
-    elif last_hit_object == "table self":
-        motion = hitTableSelfLast(ball_location, ball_velocity, arm, current_angles, joint_count)
+    if intercept == "nope":
+        return motion
 
-    return motion
-
-def hitByOpponentLast(current_time, ball_location, ball_velocity, arm, current_angles, joint_count):
-    xb_start, yb_start = ball_location[0], ball_velocity[1]
-    xb_end, yb_end = getBallEndApproximation(ball_location, ball_velocity)
-
-    bounce = collision(current_time, xb_start, yb_start, TABLE_Q[0], TABLE_Q[1], TABLE_R[0], TABLE_R[1], current_time + (1 / FPS),
-                             xb_end, yb_end, TABLE_Q[0], TABLE_Q[1], TABLE_R[0], TABLE_R[1])
-    if bounce != "no collision":
-        _, xpt, ypt, vx, vy = bounce
-        xb_end = xpt + vx
-        yb_end = ypt + vy
-
-    yb_end = max(0.55, yb_end)
-    plans = getAngles(FOOT, arm, xb_end, yb_end, 1, 0)
-    if plans == "impossible":
-        return [0] * joint_count
-    motion = plansToMotion(plans, current_angles)
-
-    return motion
-
-def hitTableSelfLast(ball_location, ball_velocity, arm, current_angles, joint_count):
-    xb_end, yb_end = getBallEndApproximation(ball_location, ball_velocity)
-
-    plans = getAngles(FOOT, arm, xb_end, yb_end, -1, 1)
-    print(plans)
-    if plans == "impossible":
-        return [0] * joint_count
-    motion = plansToMotion(plans, current_angles)
-
-    return motion
-
-
-def getBallEndApproximation(ball_location, ball_velocity):
-    # get the approximate end location of the ball after one time unit
-    xb_cur, yb_cur = ball_location[0], ball_location[1]
-    xv, yv = ball_velocity[0], ball_velocity[1]
-    xb_end, yb_end = xb_cur + xv, yb_cur + yv - (GRAVITY / FPS)
-    return (xb_end, yb_end)
+    plans = getAngles(FOOT, arm, intercept[0], intercept[1], -1, 0)
+    return plansToMotion(plans, current_angles)
 
 # transforms the planned motion to joint speeds
 # possible FIXME: this currently calculates joint distances, we know max joint speed is 2 rad/s => transformation needed
@@ -364,9 +400,6 @@ def getAngles(foot, arm, xp, yp, xn, yn):
     if not isClose(foot, arm, xr, yr, xq, yq):
         target_angles = getTargetAngles(foot, arm, xq, yq, xr, yr, CCD_ITERATIONS)
         rotateToTarget(arm, target_angles)
-        # if both are not close enough it is impossibleto approximate
-        if not isClose(foot, arm, xq, yq, xr, yr):
-            return "impossible"
     return target_angles
 
 def getSpeeds(arm, xv, yv):
