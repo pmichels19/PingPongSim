@@ -33,8 +33,7 @@ library
     PingPong.Player.ArgPlayer
     PingPong.Player.SocketPlayer
     PingPong.Player.SoloboloPlayer
-    PingPong.Player.DummyPlayer
-    PingPong.Player.TestPlayer
+    PingPong.Player.SoloboloCopyPlayer
     PingPong.Simulation  
     PingPong.Simulation.Collision  
     PingPong.Simulation.Recording

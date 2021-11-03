@@ -8,7 +8,7 @@ import numpy as np
 # The port you will use to communicate.
 # Change this to something unique! Otherwise, if your opponent also uses sockets
 # and uses the same port, weird things will happen.
-port = 1251
+port = 1252
 # amount of CCD iterations to perform during planning
 CCD_ITERATIONS = 100
 # the gravity acceleration

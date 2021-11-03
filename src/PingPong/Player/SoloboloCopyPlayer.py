@@ -147,9 +147,7 @@ def action(current_time, last_hit_time, last_hit_object, ball_location, ball_vel
     motion = [0] * joint_count
     if intercept == "nope":
         return motion
-
-    print(intercept)
-    print()
+        
     plans = getAngles(FOOT, arm, intercept[0], intercept[1], -1, 0)
     return plansToMotion(plans, current_angles)
 
