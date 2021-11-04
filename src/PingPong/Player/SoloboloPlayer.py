@@ -8,7 +8,7 @@ import numpy as np
 # The port you will use to communicate.
 # Change this to something unique! Otherwise, if your opponent also uses sockets
 # and uses the same port, weird things will happen.
-port = 1252
+port = 1287
 # amount of CCD iterations to perform during planning
 CCD_ITERATIONS = 100
 # the gravity acceleration
@@ -74,25 +74,26 @@ def getInterceptCoords(xs, ys, xv, yv, table_hit = False):
         # if the ball never lands on the table, do nothing
         if t == "nope":
             return "nope"
-        yv_bounce = -( yv - (t * GRAVITY / FPS) )
-        ys_bounce = 0.5
+        yv_bounce = -( yv - (t * GRAVITY) )
+        ys_bounce = TABLE_Q[1]
     else:
         t = 0
         yv_bounce = yv
         ys_bounce = ys
-    # otherwise, we calculate the x and velocity at the bounce
-    xt = xApprox(xs, xv, t)
 
-    t_intercept = (FPS * ((FOOT - FRONT) - xs) ) / xv
-    return (xApprox(xt, xv, t_intercept), yApprox(ys_bounce, yv_bounce, t_intercept))
+    print(yv_bounce)
+    t_intercept = ( FOOT - FRONT - xs ) / xv
+    return (FOOT - FRONT, yApprox(ys_bounce, yv_bounce, t_intercept))
 
 def extractValidImpact(xs, xv, t):
     if type(t) is tuple:
         for time in t:
+            if time < 0:
+                continue
             xt = xApprox(xs, xv, time)
             if xt >= TABLE_Q[0] and xt <= TABLE_R[0]:
                 return time
-    else:
+    elif t >= 0:
         xt = xApprox(xs, xv, t)
         if xt >= TABLE_Q[0] and xt <= TABLE_R[0]:
             return t
@@ -100,9 +101,9 @@ def extractValidImpact(xs, xv, t):
 
 def impactWithTable(ys, yv, targety):
     # solve abc formula for y(t) = targety and returns values of t
-    a = ys - targety
-    b = yv / FPS
-    c = - GRAVITY / (2 * FPS * FPS)
+    a = - 0.5 * GRAVITY
+    b = yv
+    c = ys - targety
     d = (b * b) - 4 * a * c
     
     # if a is neglibibly small then t goes to - c / b
@@ -122,10 +123,10 @@ def impactWithTable(ys, yv, targety):
     return (t1, t2)
 
 def xApprox(xs, xv, t):
-    return xs + ( t * xv / FPS )
+    return xs + ( t * xv )
 
 def yApprox(ys, yv, t):
-    return ys + ( t * yv / FPS ) - ( (t * t) *  GRAVITY / ( 2 * FPS * FPS ) )
+    return ys + ( t * yv ) - ( (t ** 2) * 0.5 *  GRAVITY  )
 
 # The function where the magic happens
 def action(current_time, last_hit_time, last_hit_object, ball_location, ball_velocity, arm_configuration):
@@ -147,10 +148,9 @@ def action(current_time, last_hit_time, last_hit_object, ball_location, ball_vel
     motion = [0] * joint_count
     if intercept == "nope":
         return motion
-
-    print(intercept)
-    print()
+    
     plans = getAngles(FOOT, arm, intercept[0], intercept[1], -1, 0)
+    print(plansToMotion(plans, current_angles))
     return plansToMotion(plans, current_angles)
 
 # transforms the planned motion to joint speeds
@@ -160,6 +160,11 @@ def plansToMotion(plans, current_angles):
     for i in range(len(plans)):
         motion.append( plans[i] - current_angles[i] )
     # joint distances now contains amount of radians to rotate by in this 1/50 seconds
+    for i in range(0, len(motion)):
+        if motion[i] < 0:
+            motion[i] = -2
+        else:
+            motion[i] = 2
     return motion
 
 ############################################################################################################################################################################

@@ -74,7 +74,7 @@ def getInterceptCoords(xs, ys, xv, yv, table_hit = False):
         # if the ball never lands on the table, do nothing
         if t == "nope":
             return "nope"
-        yv_bounce = -( yv - (t * GRAVITY / FPS) )
+        yv_bounce = -( yv - (t * GRAVITY) )
         ys_bounce = 0.5
     else:
         t = 0
@@ -83,7 +83,7 @@ def getInterceptCoords(xs, ys, xv, yv, table_hit = False):
     # otherwise, we calculate the x and velocity at the bounce
     xt = xApprox(xs, xv, t)
 
-    t_intercept = (FPS * ((FOOT - FRONT) - xs) ) / xv
+    t_intercept = ( FOOT - FRONT - xs ) / xv
     return (xApprox(xt, xv, t_intercept), yApprox(ys_bounce, yv_bounce, t_intercept))
 
 def extractValidImpact(xs, xv, t):
@@ -101,8 +101,8 @@ def extractValidImpact(xs, xv, t):
 def impactWithTable(ys, yv, targety):
     # solve abc formula for y(t) = targety and returns values of t
     a = ys - targety
-    b = yv / FPS
-    c = - GRAVITY / (2 * FPS * FPS)
+    b = yv
+    c = - GRAVITY / 2
     d = (b * b) - 4 * a * c
     
     # if a is neglibibly small then t goes to - c / b
@@ -122,10 +122,10 @@ def impactWithTable(ys, yv, targety):
     return (t1, t2)
 
 def xApprox(xs, xv, t):
-    return xs + ( t * xv / FPS )
+    return xs + ( t * xv )
 
 def yApprox(ys, yv, t):
-    return ys + ( t * yv / FPS ) - ( (t * t) *  GRAVITY / ( 2 * FPS * FPS ) )
+    return ys + ( t * yv ) - ( 0.5 * (t ** 2) * GRAVITY )
 
 # The function where the magic happens
 def action(current_time, last_hit_time, last_hit_object, ball_location, ball_velocity, arm_configuration):

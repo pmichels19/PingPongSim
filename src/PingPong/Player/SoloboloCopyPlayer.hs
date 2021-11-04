@@ -55,7 +55,7 @@ soloboloFoot = 1.7
 
 soloboloPrepare :: IO ()
 soloboloPrepare = do
-  spawnCommand ("python src/PingPong/Player/SoloboloPlayer.py")
+  spawnCommand ("python src/PingPong/Player/SoloboloCopyPlayer.py")
   threadDelay 100000
   return ()
 

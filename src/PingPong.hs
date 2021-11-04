@@ -13,7 +13,7 @@ import qualified PingPong.Player.SoloboloPlayer as SoloboloPlayer
 import qualified PingPong.Player.SoloboloCopyPlayer as SoloboloCopyPlayer
 
 main :: IO ()
-main = play SoloboloCopyPlayer.player SoloboloPlayer.player
+main = play SoloboloPlayer.player SoloboloCopyPlayer.player
 --main = playWithCollision NativePlayer.collision 
 --       SocketPlayer.player NativePlayer.player
 
