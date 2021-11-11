@@ -21,10 +21,7 @@ TABLE_R = (1, 0.5)
 # x of foot
 FOOT = 1.7
 # how far in front the arm will try to intercept the ball
-FRONT = 0.6
-
-locations = []
-predictions = []
+FRONT = 0.5
 
 ############################################################################################################################################################################
 ############################################################################################################################################################################
@@ -35,12 +32,11 @@ predictions = []
 # Handle a "action" message
 def handle_action(message):
     t, h, o, b, v, a = parse_action_input (message)
-    motion = action(t, h, o, b, v, a)
-    # try:
-    #     motion = action(t, h, o, b, v, a)
-    # except:
-    #     jointCount = a.count('joint')
-    #     motion = [0] * jointCount
+    try:
+        motion = action(t, h, o, b, v, a)
+    except:
+        jointCount = a.count('joint')
+        motion = [0] * jointCount
     return format_action_output(motion)
 
 # Takes a formatted string and breaks it into seperate variables
@@ -81,9 +77,8 @@ def getInterceptCoords(xs, ys, xv, yv, table_hit = False):
         yv_bounce = yv
         ys_bounce = ys
 
-    print(yv_bounce)
     t_intercept = ( FOOT - FRONT - xs ) / xv
-    return (FOOT - FRONT, yApprox(ys_bounce, yv_bounce, t_intercept))
+    return ( (FOOT - FRONT, yApprox(ys_bounce, yv_bounce, t_intercept)), (xv, yv_bounce - (t_intercept * GRAVITY)) )
 
 def extractValidImpact(xs, xv, t):
     if type(t) is tuple:
@@ -130,6 +125,7 @@ def yApprox(ys, yv, t):
 
 # The function where the magic happens
 def action(current_time, last_hit_time, last_hit_object, ball_location, ball_velocity, arm_configuration):
+    print(parse_plan_output([1, 2, 3], [4, 5, 6]))
     joint_count = arm_configuration.count("joint")
     arm = makeTupArm( arm_configuration.split(" ") )
 
@@ -139,27 +135,34 @@ def action(current_time, last_hit_time, last_hit_object, ball_location, ball_vel
             current_angles.append(tup[1])
     
     if last_hit_object == "table self":
-        intercept = getInterceptCoords(ball_location[0], ball_location[1], ball_velocity[0], ball_velocity[1], True)
+        interception = getInterceptCoords(ball_location[0], ball_location[1], ball_velocity[0], ball_velocity[1], True)
     elif last_hit_object == "bat opponent":
-        intercept = getInterceptCoords(ball_location[0], ball_location[1], ball_velocity[0], ball_velocity[1], False)
+        interception = getInterceptCoords(ball_location[0], ball_location[1], ball_velocity[0], ball_velocity[1], False)
     else:
-        intercept = "nope"
+        interception = "nope"
 
     motion = [0] * joint_count
-    if intercept == "nope":
+    if interception == "nope":
         return motion
+    intercept, endVelocity = interception
     
-    plans = getAngles(FOOT, arm, intercept[0], intercept[1], -1, 0)
-    print(plansToMotion(plans, current_angles))
-    return plansToMotion(plans, current_angles)
+    plans = getAngles(FOOT, arm, intercept[0], intercept[1], -1, -0.25)
+    # get the plan that is fastest to achieve
+    plans = getClosestPlan(plans, current_angles)
+    motion = plansToMotion(plans, current_angles)
+    # check if we het the ball if we swing the bat now
+    batBase = getSegRoot(FOOT, arm, joint_count)
+    if distance(batBase[0], batBase[1], ball_location[0], ball_location[1]) < 0.1:
+        motion = getSpeeds(arm, -endVelocity[0], endVelocity[1])
+        motion[-1] = 0
+
+    return motion
 
 # transforms the planned motion to joint speeds
-# possible FIXME: this currently calculates joint distances, we know max joint speed is 2 rad/s => transformation needed
 def plansToMotion(plans, current_angles):
     motion = []
     for i in range(len(plans)):
         motion.append( plans[i] - current_angles[i] )
-    # joint distances now contains amount of radians to rotate by in this 1/50 seconds
     for i in range(0, len(motion)):
         if motion[i] < 0:
             motion[i] = -2
@@ -167,6 +170,18 @@ def plansToMotion(plans, current_angles):
             motion[i] = 2
     return motion
 
+def getClosestPlan(plans, current):
+    bestPlan = [0] * len(current)
+    minDist = 100000
+    for plan in plans:
+        meanD = 0
+        for i in range(0, len(plan)):
+            meanD = meanD + abs(current[i] - plan[i])
+        if (meanD / len(plan)) < minDist:
+            minDist = meanD / len(plan)
+            bestPlan = plan
+    return bestPlan
+        
 ############################################################################################################################################################################
 ############################################################################################################################################################################
 ###############################################################################  COLLISION  ################################################################################
@@ -204,7 +219,7 @@ def parse_collision_input(data):
     return t1, xp1, yp1, xq1, yq1, xr1, yr1, t2, xp2, yp2, xq2, yq2, xr2, yr2
 
 def parse_collision_output(t, xpt, ypt, vx, vy):
-    return f"time {t} point {xpt} {ypt} vector {vx} {vy}"
+    return "time {} point {} {} vector {} {}".format(t, xpt, ypt, vx, vy)
 
 # The collision function
 def collision(t1, xp1, yp1, xq1, yq1, xr1, yr1, t2, xp2, yp2, xq2, yq2, xr2, yr2, reverse = False):
@@ -360,18 +375,18 @@ def parse_plan_input(data):
     return foot, arm, xp, yp, xn, yn, xv, yv
 
 def parse_plan_output(angles, speeds):
-    return f"{parseAngles(angles)}\n{parseSpeeds(speeds)}"
+    return "{}\n{}".format(parseAngles(angles), parseSpeeds(speeds))
 
 def parseSpeeds(speeds):
     result = "speeds"
     for speed in speeds:
-        result += f" {speed}"
+        result += " " + str(speed)
     return result
 
 def parseAngles(angles):
     result = "angles"
     for angle in angles:
-        result += f" {angle}"
+        result += " " + str(angle)
     return result
 
 # The plan function
@@ -381,7 +396,7 @@ def plan(foot, arm, xp, yp, xn, yn, xv, yv):
         del arm[0]
     
     arm_config = makeTupArm(arm)
-    angles = getAngles(foot, arm, xp, yp, xn, yn)
+    angles = getAngles(foot, arm, xp, yp, xn, yn)[0]
     if angles == "impossible":
         return angles
     # get the speeds needed to achieve the velocity provided
@@ -401,13 +416,10 @@ def makeTupArm(arm):
 def getAngles(foot, arm, xp, yp, xn, yn):
     # get end points of target line segment using normal vector and middle point
     xr, yr, xq, yq = getBatEndpoints(xp, yp, xn, yn)
-    target_angles = getTargetAngles(foot, arm, xr, yr, xq, yq, CCD_ITERATIONS)
-    rotateToTarget(arm, target_angles)
-    # check if the angles approximate the desired segment well enough
-    if not isClose(foot, arm, xr, yr, xq, yq):
-        target_angles = getTargetAngles(foot, arm, xq, yq, xr, yr, CCD_ITERATIONS)
-        rotateToTarget(arm, target_angles)
-    return target_angles
+    angles1 = getTargetAngles(foot, arm, xr, yr, xq, yq, CCD_ITERATIONS)
+    angles2 = getTargetAngles(foot, arm, xq, yq, xr, yr, CCD_ITERATIONS)
+    
+    return (angles1, angles2)
 
 def getSpeeds(arm, xv, yv):
     jacobian = getJacobian(arm)
@@ -457,14 +469,14 @@ def getJacobian(arm):
 
 def rotateToTarget(arm, angles):
     for i in range(len(angles)):
-            jointCount = 0
-            for tup in arm:
-                if tup[0] != "joint":
-                    continue
-                if jointCount != i:
-                    jointCount += 1
-                    continue
-                tup[1] = angles[i]
+        jointCount = 0
+        for tup in arm:
+            if tup[0] != "joint":
+                continue
+            if jointCount != i:
+                jointCount += 1
+                continue
+            tup[1] = angles[i]
 
 def isClose(foot, arm, xr, yr, xq, yq):
     basex, basey = getEndEffector(foot, arm[:-2])

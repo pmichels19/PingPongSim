@@ -46,7 +46,7 @@ soloboloArm = [
           , Link  (gradient 0.5) 0.3
           , Joint (gradient 0.6) (pi / 2)
           , Link  (gradient 0.7) 0.2
-          , Joint (gradient 0.8) (- 2.5 * pi / 4)
+          , Joint (gradient 0.8) (pi / 2)
           , Link  (gradient 0.9) 0.1
           ]
 
